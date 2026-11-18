@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "regression_tests": 145,
+  "new_expiry_tests": 4,
+  "ui_checks": 2,
+  "actual_lead": "L000002",
+  "actual_status": "EXPIRED",
+  "external_sending": false
+}

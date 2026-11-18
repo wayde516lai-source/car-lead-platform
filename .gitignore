@@ -1,0 +1,13 @@
+data/
+__pycache__/
+*.pyc
+.venv/
+*.log
+*.pid
+.DS_Store
+*.tar.gz
+.env*
+.wbapp*
+.workbuddy/
+.idea/
+.vscode/

@@ -1,0 +1,205 @@
+{
+  "generated_at": "2026-11-06T02:49:35+00:00",
+  "total": 28,
+  "passed": 28,
+  "failed": 0,
+  "environment": "独立临时SQLite及本地HTTP，模拟媒体，不含生产容量验收",
+  "cases": [
+    {
+      "id": "AC01",
+      "name": "来源记录重放幂等",
+      "passed": true,
+      "evidence": "10次提交，1条采集记录及1条线索",
+      "error": ""
+    },
+    {
+      "id": "AC02",
+      "name": "跨渠道意向去重与第一来源保留",
+      "passed": true,
+      "evidence": "两个渠道同一线索，首次来源与1800分成本不变",
+      "error": ""
+    },
+    {
+      "id": "AC03",
+      "name": "5条线索向两个媒体产生10笔独立分发",
+      "passed": true,
+      "evidence": "5条唯一线索、10笔分发，两需求各预占5",
+      "error": ""
+    },
+    {
+      "id": "AC04",
+      "name": "直连与乙方统一按媒体去重",
+      "passed": true,
+      "evidence": "经乙方再投同一最终媒体被拦截",
+      "error": ""
+    },
+    {
+      "id": "AC05",
+      "name": "缺少对应接收方授权禁止分发",
+      "passed": true,
+      "evidence": "只授权A不能发B，无外发载荷",
+      "error": ""
+    },
+    {
+      "id": "AC06",
+      "name": "剩余1条配额下20并发最多成功1条",
+      "passed": true,
+      "evidence": "20个并发事务仅1成功，账本一致",
+      "error": ""
+    },
+    {
+      "id": "AC07",
+      "name": "无幂等与查询能力超时保持UNKNOWN",
+      "passed": true,
+      "evidence": "UNKNOWN保留预占、仅1次尝试、不安全重发被禁止",
+      "error": ""
+    },
+    {
+      "id": "AC08",
+      "name": "同回调重复20次不重复记账",
+      "passed": true,
+      "evidence": "20次重复回调仅增1条有效量",
+      "error": ""
+    },
+    {
+      "id": "AC09",
+      "name": "同事件编号不同内容拒绝并审计",
+      "passed": true,
+      "evidence": "冲突拒绝、保留原事件和冲突审计",
+      "error": ""
+    },
+    {
+      "id": "AC10",
+      "name": "乙方ACK不等于最终媒体入库",
+      "passed": true,
+      "evidence": "乙方接收成功，媒体节点仍待反馈",
+      "error": ""
+    },
+    {
+      "id": "AC11",
+      "name": "有效与入库乱序不覆盖其他维度",
+      "passed": true,
+      "evidence": "有效v2先于入库v1，旧有效版本不覆盖",
+      "error": ""
+    },
+    {
+      "id": "AC12",
+      "name": "结果更正按版本冲正配额",
+      "passed": true,
+      "evidence": "无效→有效→无效，账本冲正后守恒",
+      "error": ""
+    },
+    {
+      "id": "AC13",
+      "name": "暂停取消未发送并继续处理历史回调",
+      "passed": true,
+      "evidence": "暂停取消排队；已发送回调继续接收",
+      "error": ""
+    },
+    {
+      "id": "AC14",
+      "name": "撤回停发并通知历史接收方",
+      "passed": true,
+      "evidence": "排队、在途、有效场景撤回均停发并生成通知",
+      "error": ""
+    },
+    {
+      "id": "AC15",
+      "name": "明文与导出权限校验",
+      "passed": true,
+      "evidence": "运营明文403；未批准禁止下载；列表无成本及密文",
+      "error": ""
+    },
+    {
+      "id": "AC16",
+      "name": "跨组织访问与下载拒绝",
+      "passed": true,
+      "evidence": "跨组织对象和导出404；后台任务不会越界",
+      "error": ""
+    },
+    {
+      "id": "AC17",
+      "name": "重复任务投递不增加业务交付或获客成本",
+      "passed": true,
+      "evidence": "10笔新分发+1历史，重复投递3轮无新增成本和交付；网络重试尚未接真实接口",
+      "error": ""
+    },
+    {
+      "id": "AC18",
+      "name": "回调写入失败返回503且安全重试",
+      "passed": true,
+      "evidence": "数据库写入失败HTTP503，重试HTTP200且一次处理",
+      "error": ""
+    },
+    {
+      "id": "AC19",
+      "name": "重启后outbox恢复同一业务交付",
+      "passed": true,
+      "evidence": "新实例恢复持久化outbox，不生成第二次发送",
+      "error": ""
+    },
+    {
+      "id": "AC20",
+      "name": "车型或路由异常不发送",
+      "passed": true,
+      "evidence": "未映射车型隔离，停用路由禁止分发",
+      "error": ""
+    },
+    {
+      "id": "AC21",
+      "name": "配额不可低于有效加在途",
+      "passed": true,
+      "evidence": "低于有效加在途则409，原需求总量不变",
+      "error": ""
+    },
+    {
+      "id": "AC22",
+      "name": "恢复旧备份前重放删除清单",
+      "passed": true,
+      "evidence": "恢复删除前备份后，独立清单确保仍已删除且不可分发",
+      "error": ""
+    },
+    {
+      "id": "AC23",
+      "name": "签名时间戳与nonce防重放",
+      "passed": true,
+      "evidence": "错误签名、过期时间戳、重复nonce均401，正常签名200",
+      "error": ""
+    },
+    {
+      "id": "AC24",
+      "name": "未知编号回调202入待关联队列",
+      "passed": true,
+      "evidence": "HTTP202，inbox与事件均持久化待关联",
+      "error": ""
+    },
+    {
+      "id": "AC25",
+      "name": "媒体编号前导零与车型同传",
+      "passed": true,
+      "evidence": "0000007与BMW_X5同报文；未填媒体编号被拒绝",
+      "error": ""
+    },
+    {
+      "id": "AC26",
+      "name": "Excel与CSV预检及确认幂等",
+      "passed": true,
+      "evidence": "CSV与Excel均正确分类，错误跳过，重复确认幂等",
+      "error": ""
+    },
+    {
+      "id": "AC27",
+      "name": "媒体上限动态调整且保留历史",
+      "passed": true,
+      "evidence": "升至3允许第三家，降至1取消未发送第三家，保留两家历史",
+      "error": ""
+    },
+    {
+      "id": "AC28",
+      "name": "分页20 50 100及非法值校验",
+      "passed": true,
+      "evidence": "20、50、100均接受；25返回422语义错误",
+      "error": ""
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "regression_tests": 153,
+  "matching_pool_tests": 8,
+  "new_ui_checks": 4,
+  "existing_ui_checks": 10,
+  "external_sending": false,
+  "preview_eligible_leads": 0
+}

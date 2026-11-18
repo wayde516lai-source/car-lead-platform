@@ -1,0 +1,5 @@
+{
+  "passed": false,
+  "status": "NOT_VERIFIED",
+  "reason": "内置浏览器连接超时；独立Chrome启动受本机执行环境限制。未完成浏览器像素和布局验收，DOM与接口联动结果另见dom-results.json。"
+}

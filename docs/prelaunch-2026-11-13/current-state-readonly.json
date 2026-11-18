@@ -1,0 +1,27 @@
+{
+  "observed_at": "2026-11-13T15:17:59.181002+08:00",
+  "business_database_access": "read-only metadata only",
+  "schema_version": 22,
+  "row_counts": {
+    "leads": 90,
+    "demands": 222,
+    "deliveries": 22
+  },
+  "source_status": [
+    {
+      "name": "湖北喆满汇1 · 易车会员需求表",
+      "last_success_at": "2026-11-12T08:50:23+00:00",
+      "last_error": "文档数据地址与分享链接不一致",
+      "interval_minutes": 30,
+      "enabled": 1
+    }
+  ],
+  "rules": {
+    "max_media_count": 2,
+    "dedup_window_days": 30,
+    "ka_max_count": 1,
+    "forbid_same_media": 1,
+    "dispatch_enabled": 1,
+    "auto_dispatch_enabled": 1
+  }
+}

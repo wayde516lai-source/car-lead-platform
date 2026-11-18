@@ -1,0 +1,54 @@
+{
+  "before": {
+    "id": "dm_f00c58deaf354db09ae9",
+    "status": "CLOSED",
+    "daily_limit": 5,
+    "version": 4
+  },
+  "current": {
+    "project_id": "dp_897ce620facd4e2e8afa",
+    "id": "dm_f00c58deaf354db09ae9",
+    "status": "ACTIVE",
+    "daily_limit": 10,
+    "version": 5,
+    "row_number": 217
+  },
+  "sync": {
+    "added": 3,
+    "demands": {
+      "active": 205,
+      "closed": 10,
+      "errors": 0,
+      "linked": 215
+    },
+    "fetched": 215,
+    "id": "dsr_541278e66fa44adaa4e6",
+    "notice": "原链接工作表编号已失效，已定位同一文档唯一可见工作表：需求表；重复编号已按确认规则采用原表后行，旧版本已保留历史",
+    "removed": 0,
+    "status": "SUCCESS",
+    "unchanged": 210,
+    "updated": 2
+  },
+  "repeat": {
+    "added": 0,
+    "demands": {
+      "active": 205,
+      "closed": 10,
+      "errors": 0,
+      "linked": 215
+    },
+    "fetched": 215,
+    "id": "dsr_451afc53eeb8419b806f",
+    "notice": "重复编号已按确认规则采用原表后行，旧版本已保留历史",
+    "removed": 0,
+    "status": "SUCCESS",
+    "unchanged": 215,
+    "updated": 0
+  },
+  "history_versions": 1,
+  "health": {
+    "external_sending": false,
+    "mode": "LOCAL_TEST",
+    "ready": true
+  }
+}

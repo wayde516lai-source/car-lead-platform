@@ -1,0 +1,4236 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "汽车线索平台本地测试接口",
+    "version": "1.1.0",
+    "description": "仅本地模拟实现。Cookie会话写接口需X-CSRF-Token；分发另需Idempotency-Key。真实媒体适配未接入。"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8765"
+    }
+  ],
+  "paths": {
+    "/api/v1/login": {
+      "post": {
+        "summary": "登录本地测试账号",
+        "responses": {
+          "200": {
+            "description": "成功"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "username",
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "summary": "当前会话及权限",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/catalogs": {
+      "get": {
+        "summary": "主体、渠道、路由、车型、城市及设置",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reports/funnel": {
+      "get": {
+        "summary": "全量首次发送队列统计",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/integrity": {
+      "get": {
+        "summary": "数据库一致性检查",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/acceptance": {
+      "get": {
+        "summary": "本地验收报告",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/leads": {
+      "get": {
+        "summary": "leads分页列表",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                20,
+                50,
+                100
+              ],
+              "default": 20
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "人工录入线索",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "channel_id": {
+                    "type": "string"
+                  },
+                  "source_record_id": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "series_id": {
+                    "type": "string"
+                  },
+                  "city_code": {
+                    "type": "string"
+                  },
+                  "collected_at": {
+                    "type": "string"
+                  },
+                  "recipients": {
+                    "type": "array",
+                    "items": {}
+                  },
+                  "evidence_ref": {
+                    "type": "string"
+                  },
+                  "cost_fen": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "channel_id",
+                  "source_record_id",
+                  "phone",
+                  "series_id",
+                  "city_code"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demands": {
+      "get": {
+        "summary": "demands分页列表",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                20,
+                50,
+                100
+              ],
+              "default": 20
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "创建媒体采购需求",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "demand_no": {
+                    "type": "string"
+                  },
+                  "agency_demand_no": {
+                    "type": "string"
+                  },
+                  "route_id": {
+                    "type": "string"
+                  },
+                  "series_id": {
+                    "type": "string"
+                  },
+                  "city_codes": {
+                    "type": "array",
+                    "items": {}
+                  },
+                  "target_total": {
+                    "type": "integer"
+                  },
+                  "daily_limit": {
+                    "type": "integer"
+                  },
+                  "unit_price_fen": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "demand_no",
+                  "route_id",
+                  "target_total",
+                  "daily_limit"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/deliveries": {
+      "get": {
+        "summary": "deliveries分页列表",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                20,
+                50,
+                100
+              ],
+              "default": 20
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/imports": {
+      "get": {
+        "summary": "imports分页列表",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                20,
+                50,
+                100
+              ],
+              "default": 20
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "Excel或CSV预检，content为Base64文件",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filename": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "channel_id": {
+                    "type": "string"
+                  },
+                  "sheet": {
+                    "type": "string"
+                  },
+                  "column_mapping": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "filename",
+                  "content",
+                  "channel_id"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/callback_events": {
+      "get": {
+        "summary": "callback_events分页列表",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                20,
+                50,
+                100
+              ],
+              "default": 20
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/privacy_requests": {
+      "get": {
+        "summary": "privacy_requests分页列表",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                20,
+                50,
+                100
+              ],
+              "default": 20
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "撤回或删除，立即停止分发",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lead_id": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "lead_id",
+                  "type"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/exports": {
+      "get": {
+        "summary": "exports分页列表",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                20,
+                50,
+                100
+              ],
+              "default": 20
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "申请脱敏导出",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "purpose"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/audit_log": {
+      "get": {
+        "summary": "audit_log分页列表",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                20,
+                50,
+                100
+              ],
+              "default": 20
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/leads/{id}": {
+      "get": {
+        "summary": "leads详情及关联记录",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demands/{id}": {
+      "get": {
+        "summary": "demands详情及关联记录",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "summary": "修改数量及价格，保留历史快照",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer"
+                  },
+                  "target_total": {
+                    "type": "integer"
+                  },
+                  "daily_limit": {
+                    "type": "integer"
+                  },
+                  "unit_price_fen": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/deliveries/{id}": {
+      "get": {
+        "summary": "deliveries详情及关联记录",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demands/{id}/submit": {
+      "post": {
+        "summary": "需求submit",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demands/{id}/approve": {
+      "post": {
+        "summary": "需求approve",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demands/{id}/pause": {
+      "post": {
+        "summary": "需求pause",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demands/{id}/resume": {
+      "post": {
+        "summary": "需求resume",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demands/{id}/close": {
+      "post": {
+        "summary": "需求close",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/leads/{id}/review": {
+      "post": {
+        "summary": "核验授权",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/leads/{id}/reveal": {
+      "post": {
+        "summary": "按用途查看明文",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/matches/preview": {
+      "post": {
+        "summary": "匹配预览，不占配额",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lead_ids": {
+                    "type": "array",
+                    "items": {}
+                  },
+                  "demand_ids": {
+                    "type": "array",
+                    "items": {}
+                  },
+                  "projects": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "enum": [
+                        "KA",
+                        "MEMBER"
+                      ]
+                    }
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/dispatches": {
+      "post": {
+        "summary": "确认创建分发，事务预占",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pairs": {
+                    "type": "array",
+                    "items": {}
+                  },
+                  "preview_version": {
+                    "type": "string"
+                  },
+                  "projects": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "enum": [
+                        "KA",
+                        "MEMBER"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "pairs",
+                  "projects"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/worker/run": {
+      "post": {
+        "summary": "执行待发送模拟任务",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/inbox/run": {
+      "post": {
+        "summary": "处理已持久化回调",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/maintenance": {
+      "post": {
+        "summary": "检查超时与一致性",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/backup": {
+      "post": {
+        "summary": "创建加密本地备份",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/logout": {
+      "post": {
+        "summary": "退出会话",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/deliveries/{id}/timeline": {
+      "get": {
+        "summary": "完整链路、尝试、回调、载荷快照和账本",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/deliveries/{id}/mock-callback": {
+      "post": {
+        "summary": "仅本地：模拟媒体结果",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "integer"
+                  },
+                  "event_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/deliveries/{id}/reconcile": {
+      "post": {
+        "summary": "仅本地：查询模拟接收结果，不重发",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/settings/distribution": {
+      "get": {
+        "summary": "当前分发设置",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "patch": {
+        "summary": "修改累计售卖次数、去重窗口、KA限制、同媒体规则和手动/自动开关，记录版本及原因",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "max_media_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "version": {
+                    "type": "integer"
+                  },
+                  "dispatch_enabled": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "dedup_window_days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3650
+                  },
+                  "ka_max_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "forbid_same_media": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "auto_dispatch_enabled": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "version",
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/imports/{id}/commit": {
+      "post": {
+        "summary": "按ALL_VALID或VALID_ROWS确认入库",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "mode"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/imports/{id}/errors": {
+      "get": {
+        "summary": "下载脱敏错误行CSV",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/template": {
+      "get": {
+        "summary": "下载Excel模板；format=csv下载CSV",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/privacy-notices": {
+      "get": {
+        "summary": "历史接收方隐私通知",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/privacy-notices/{id}": {
+      "post": {
+        "summary": "模拟接收方确认停止处理通知",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/exports/{id}/approve": {
+      "post": {
+        "summary": "由另一有权限人员批准导出",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/exports/{id}/download": {
+      "get": {
+        "summary": "申请人15分钟内单次下载脱敏CSV",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/partners": {
+      "post": {
+        "summary": "创建partners",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string"
+                  },
+                  "contract_end": {
+                    "type": "string"
+                  },
+                  "final_media": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "description": "乙方最终媒体名称，可选已有或手动输入，自有媒体按主体区分"
+                  },
+                  "final_media_id": {
+                    "type": "string",
+                    "description": "已有最终媒体编号，与final_media二选一"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": " 新增乙方时最终媒体必填：final_media为可选择或新输入的名称；final_media_id为已有本组织媒体编号。自有媒体按乙方单独建立。事务内保存关联及本地转发路由。"
+      }
+    },
+    "/api/v1/partners/{id}": {
+      "patch": {
+        "summary": "更新状态或模拟器能力",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "mode": {
+                    "type": "string"
+                  },
+                  "supports_query": {
+                    "type": "integer"
+                  },
+                  "supports_idempotency": {
+                    "type": "integer"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/channels": {
+      "post": {
+        "summary": "创建channels",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "source_partner_id": {
+                    "type": "string"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/channels/{id}": {
+      "patch": {
+        "summary": "更新状态或模拟器能力",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "mode": {
+                    "type": "string"
+                  },
+                  "supports_query": {
+                    "type": "integer"
+                  },
+                  "supports_idempotency": {
+                    "type": "integer"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/routes": {
+      "post": {
+        "summary": "创建routes",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "receiver_id": {
+                    "type": "string"
+                  },
+                  "media_id": {
+                    "type": "string"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/routes/{id}": {
+      "patch": {
+        "summary": "更新状态或模拟器能力",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "mode": {
+                    "type": "string"
+                  },
+                  "supports_query": {
+                    "type": "integer"
+                  },
+                  "supports_idempotency": {
+                    "type": "integer"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/open/v1/leads": {
+      "post": {
+        "summary": "测试来源上报",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "202": {
+            "description": "来源批次接收或回调无法关联但已持久化"
+          },
+          "401": {
+            "description": "签名、时间戳或nonce无效"
+          },
+          "409": {
+            "description": "同事件编号不同内容"
+          },
+          "503": {
+            "description": "未能持久化，请以新nonce和原event_id重试"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "signature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Key-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Nonce",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/open/v1/callbacks/{partner_code}": {
+      "post": {
+        "summary": "签名回调，先持久化再应答",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "202": {
+            "description": "来源批次接收或回调无法关联但已持久化"
+          },
+          "401": {
+            "description": "签名、时间戳或nonce无效"
+          },
+          "409": {
+            "description": "同事件编号不同内容"
+          },
+          "503": {
+            "description": "未能持久化，请以新nonce和原event_id重试"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "signature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Key-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Nonce",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "partner_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/distribution/auto": {
+      "get": {
+        "summary": "自动分发处理结果与候选需求",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/distribution/auto/run": {
+      "post": {
+        "summary": "立即进行本地自动分发扫描，遵循共用规则",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/distribution/auto/bind": {
+      "post": {
+        "summary": "人工指定每条线索的唯一自动分发目标",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "pairs"
+                ],
+                "properties": {
+                  "pairs": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "lead_id",
+                        "demand_id"
+                      ],
+                      "properties": {
+                        "lead_id": {
+                          "type": "string"
+                        },
+                        "demand_id": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/matches/leads": {
+      "get": {
+        "summary": "仅返回当前至少可匹配一项执行中需求的线索，包含字段权限、筛选与分页",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "lead_no",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sales_count",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "matched_media",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "selected_ids",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demand-sync/sources": {
+      "get": {
+        "summary": "项目同步来源列表",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": []
+      },
+      "post": {
+        "summary": "添加腾讯文档来源",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "interval_minutes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1440,
+                    "default": 30
+                  },
+                  "enabled": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  },
+                  "media_id": {
+                    "type": "string"
+                  },
+                  "sale_project": {
+                    "type": "string",
+                    "enum": [
+                      "MEMBER",
+                      "KA"
+                    ]
+                  },
+                  "version": {
+                    "type": "integer"
+                  },
+                  "quantity_basis": {
+                    "type": "string",
+                    "enum": [
+                      "DAILY",
+                      "TOTAL"
+                    ],
+                    "default": "DAILY",
+                    "description": "DAILY每日需求量；TOTAL项目时间内总需求量"
+                  },
+                  "route_id": {
+                    "type": "string",
+                    "description": "必须与最终媒体一致的交付路由，留空使用直连路由"
+                  },
+                  "partner_id": {
+                    "type": "string",
+                    "description": "线索供应中的合作主体ID"
+                  }
+                },
+                "required": [
+                  "name",
+                  "url",
+                  "partner_id",
+                  "media_id",
+                  "sale_project"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demand-sync/sources/{id}": {
+      "patch": {
+        "summary": "修改同步频率及开关",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "interval_minutes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1440,
+                    "default": 30
+                  },
+                  "enabled": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  },
+                  "media_id": {
+                    "type": "string"
+                  },
+                  "sale_project": {
+                    "type": "string",
+                    "enum": [
+                      "MEMBER",
+                      "KA"
+                    ]
+                  },
+                  "version": {
+                    "type": "integer"
+                  },
+                  "quantity_basis": {
+                    "type": "string",
+                    "enum": [
+                      "DAILY",
+                      "TOTAL"
+                    ],
+                    "default": "DAILY",
+                    "description": "DAILY每日需求量；TOTAL项目时间内总需求量"
+                  },
+                  "route_id": {
+                    "type": "string",
+                    "description": "必须与最终媒体一致的交付路由，留空使用直连路由"
+                  },
+                  "partner_id": {
+                    "type": "string",
+                    "description": "线索供应中的合作主体ID"
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demand-sync/sources/{id}/sync": {
+      "post": {
+        "summary": "手动同步原表项目",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demand-sync/sources/{id}/projects": {
+      "get": {
+        "summary": "原表项目分页与搜索",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "present",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demand-sync/sources/{id}/runs": {
+      "get": {
+        "summary": "最近20次同步记录",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demand-sync/projects/{id}": {
+      "get": {
+        "summary": "原表项目详情与原始值",
+        "responses": {
+          "200": {
+            "description": "成功，响应包装为code/message/data/request_id"
+          },
+          "401": {
+            "description": "未登录或签名无效"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "版本/幂等/业务冲突"
+          },
+          "422": {
+            "description": "字段验证失败"
+          },
+          "503": {
+            "description": "数据库不可用，请重试"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/demand-sync/projects": {
+      "get": {
+        "summary": "汇总全部合作商需求及组合筛选",
+        "parameters": [
+          {
+            "name": "partner_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "match_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "分页需求、状态统计、上下文筛选选项及来源编号"
+          }
+        }
+      }
+    },
+    "/api/v1/demands/summary": {
+      "get": {
+        "summary": "按合作主体、最终媒体与项目汇总需求",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "media",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "汇总执行中数量、有效/在途/可用、进度、星级、状态及每日/累计拆分"
+          }
+        }
+      }
+    },
+    "/api/v1/partner-projects/mode": {
+      "patch": {
+        "summary": "设置合作主体会员或KA项目的匹配方式",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "partner_id",
+                  "project",
+                  "matching_mode",
+                  "version"
+                ],
+                "properties": {
+                  "partner_id": {
+                    "type": "string"
+                  },
+                  "project": {
+                    "type": "string",
+                    "enum": [
+                      "MEMBER",
+                      "KA"
+                    ]
+                  },
+                  "matching_mode": {
+                    "type": "string",
+                    "enum": [
+                      "MANUAL",
+                      "AUTO"
+                    ]
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "项目匹配方式及新版本"
+          },
+          "403": {
+            "description": "无分发权限"
+          },
+          "409": {
+            "description": "项目配置版本冲突"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "lead_session"
+      },
+      "signature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Signature"
+      }
+    }
+  }
+}

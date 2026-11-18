@@ -1,0 +1,2104 @@
+{
+  "scope": "jsdom DOM events + isolated localhost HTTP API, not pixel browser certification",
+  "cases": [
+    {
+      "id": "WEB01",
+      "module": "登录与导航",
+      "name": "管理员登录",
+      "status": "PASS",
+      "ms": 44,
+      "evidence": "管理员登录并进入工作台"
+    },
+    {
+      "id": "WEB02",
+      "module": "登录与导航",
+      "name": "14个功能模块渲染",
+      "status": "PASS",
+      "ms": 158,
+      "evidence": "14/14页面无渲染异常"
+    },
+    {
+      "id": "CFG01",
+      "module": "合作配置",
+      "name": "新增媒体只开通会员",
+      "status": "PASS",
+      "ms": 43,
+      "evidence": "仅开通会员，未自动开通KA"
+    },
+    {
+      "id": "CFG02",
+      "module": "合作配置",
+      "name": "主动添加KA项目",
+      "status": "PASS",
+      "ms": 52,
+      "evidence": "主动开通KA；本地直连路由已配置"
+    },
+    {
+      "id": "CFG03",
+      "module": "合作配置",
+      "name": "乙方最终媒体条件必填及关联",
+      "status": "PASS",
+      "ms": 37,
+      "evidence": "乙方必填媒体，已有媒体复用，并建立转发路由"
+    },
+    {
+      "id": "CFG04",
+      "module": "合作配置",
+      "name": "供应商自定义获客方式",
+      "status": "PASS",
+      "ms": 35,
+      "evidence": "供应商与自定义获客方式持久化"
+    },
+    {
+      "id": "DMD01",
+      "module": "需求同步",
+      "name": "新增需求沿用链接表单且必填",
+      "status": "PASS",
+      "ms": 18,
+      "evidence": "保留链接、主体、媒体、项目必填流程"
+    },
+    {
+      "id": "DMD02",
+      "module": "需求同步",
+      "name": "会员需求同步及汇总",
+      "status": "PASS",
+      "ms": 57,
+      "evidence": "会员需求同步，目标2条，摘要按项目展示"
+    },
+    {
+      "id": "DMD03",
+      "module": "需求同步",
+      "name": "重复同步幂等",
+      "status": "PASS",
+      "ms": 10,
+      "evidence": "重复读取不新增需求或修改业务编号"
+    },
+    {
+      "id": "DMD04",
+      "module": "需求同步",
+      "name": "KA与乙方需求分别归属",
+      "status": "PASS",
+      "ms": 105,
+      "evidence": "会员、KA、乙方转发三组需求独立"
+    },
+    {
+      "id": "LEAD01",
+      "module": "线索录入",
+      "name": "11位手机及已售卖条件校验",
+      "status": "PASS",
+      "ms": 40,
+      "evidence": "前后端拒绝非法手机号，已售卖条件必填"
+    },
+    {
+      "id": "LEAD02",
+      "module": "线索录入",
+      "name": "手工录入可分发线索",
+      "status": "PASS",
+      "ms": 58,
+      "evidence": "手工填写必填字段后入库"
+    },
+    {
+      "id": "MAN01",
+      "module": "手动分发",
+      "name": "主体项目选择、预览与创建",
+      "status": "PASS",
+      "ms": 83,
+      "evidence": "只列可分发组合，创建1笔待发送任务"
+    },
+    {
+      "id": "SEND01",
+      "module": "发送链路",
+      "name": "待发送任务执行及接收",
+      "status": "PASS",
+      "ms": 54,
+      "evidence": "待发送任务变为ACKED，链路可查看"
+    },
+    {
+      "id": "CB01",
+      "module": "回调额度",
+      "name": "入库反馈不直接计有效",
+      "status": "PASS",
+      "ms": 25,
+      "evidence": "入库后有效0、在途1、可用1"
+    },
+    {
+      "id": "CB02",
+      "module": "回调额度",
+      "name": "有效反馈更新额度与进度",
+      "status": "PASS",
+      "ms": 5,
+      "evidence": "有效1、在途0、可用1，进度50%"
+    },
+    {
+      "id": "IMP01",
+      "module": "表格导入",
+      "name": "Excel预检及仅合格行入库",
+      "status": "PASS",
+      "ms": 165,
+      "evidence": "Excel两行：合格1、错误1，确认新增1"
+    },
+    {
+      "id": "IMP02",
+      "module": "表格导入",
+      "name": "CSV正确、重复、错误分开处理",
+      "status": "PASS",
+      "ms": 50,
+      "evidence": "CSV三行：合格1、重复1、错误1"
+    },
+    {
+      "id": "API01",
+      "module": "供应商API",
+      "name": "签名接入与nonce防重放",
+      "status": "PASS",
+      "ms": 9,
+      "evidence": "签名API接收成功，重复nonce返回401，未在报告记录密钥"
+    },
+    {
+      "id": "AUTO01",
+      "module": "自动分发",
+      "name": "会员自动与KA手动相互独立",
+      "status": "PASS",
+      "ms": 41,
+      "evidence": "仅会员自动，KA仍手动"
+    },
+    {
+      "id": "AUTO02",
+      "module": "自动分发",
+      "name": "唯一匹配自动创建且不超配额",
+      "status": "PASS",
+      "ms": 7,
+      "evidence": "自动创建1笔并模拟发送，今日2条额度未超发"
+    },
+    {
+      "id": "AUTO03",
+      "module": "自动分发",
+      "name": "无效释放额度、补发与切回手动",
+      "status": "PASS",
+      "ms": 47,
+      "evidence": "无效释放1条后补发1笔，切回手动"
+    },
+    {
+      "id": "RELAY01",
+      "module": "乙方转发",
+      "name": "乙方接收及最终媒体链路",
+      "status": "PASS",
+      "ms": 94,
+      "evidence": "乙方与最终媒体身份独立，保留至少两个链路节点"
+    },
+    {
+      "id": "FILTER01",
+      "module": "线索与筛选",
+      "name": "品牌车型关联及线索池入口精简",
+      "status": "PASS",
+      "ms": 12,
+      "evidence": "线索池无批量匹配入口，品牌选择联动车型"
+    },
+    {
+      "id": "PERM01",
+      "module": "账号权限",
+      "name": "字段权限与运营配置越权拦截",
+      "status": "PASS",
+      "ms": 58,
+      "evidence": "运营仅见授权字段，修改分发规则返回403"
+    },
+    {
+      "id": "EXPORT01",
+      "module": "数据导出",
+      "name": "运营申请、合规审批、单次脱敏下载",
+      "status": "PASS",
+      "ms": 203,
+      "evidence": "合规独立批准，导出不含明文手机号，仅可下载一次"
+    },
+    {
+      "id": "CODE01",
+      "module": "Code管理",
+      "name": "新增、修改、删除同组Code",
+      "status": "PASS",
+      "ms": 80,
+      "evidence": "同原因双Code新增、修改和删除完整可操作"
+    },
+    {
+      "id": "GOV01",
+      "module": "授权治理",
+      "name": "撤回取消未发送任务并留记录",
+      "status": "FAIL",
+      "ms": 8873,
+      "evidence": "Error: 等待失败 login compliance Code 码已删除 当前账号没有此操作权限（FORBIDDEN）重新加载\n    at wait (/Users/oule/Documents/Codex/2026-11-04/referenced-chatgpt-conversation-this-is-an/outputs/汽车线索平台测试系统/tests/test_prelaunch_flow.cjs:6:212)\n    at async login (/Users/oule/Documents/Codex/2026-11-04/referenced-chatgpt-conversation-this-is-an/outputs/汽车线索平台测试系统/tests/test_prelaunch_flow.cjs:8:196)\n    at async /Users/oule/Documents/Codex/2026-11-04/referenced-chatgpt-conversation-this-is-an/outputs/汽车线索平台测试系统/tests/test_prelaunch_flow.cjs:42:143\n    at async run (/Users/oule/Documents/Codex/2026-11-04/referenced-chatgpt-conversation-this-is-an/outputs/汽车线索平台测试系统/tests/test_prelaunch_flow.cjs:7:101)\n    at async /Users/oule/Documents/Codex/2026-11-04/referenced-chatgpt-conversation-this-is-an/outputs/汽车线索平台测试系统/tests/test_prelaunch_flow.cjs:42:1"
+    },
+    {
+      "id": "DB01",
+      "module": "数据一致性",
+      "name": "配额、账本与关联一致性",
+      "status": "BLOCKED",
+      "evidence": "前置流程失败，未执行"
+    },
+    {
+      "id": "BACKUP01",
+      "module": "备份",
+      "name": "加密备份生成",
+      "status": "BLOCKED",
+      "evidence": "前置流程失败，未执行"
+    }
+  ],
+  "errors": [],
+  "timings": [
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "ms": 12,
+      "status": 401
+    },
+    {
+      "path": "/api/v1/login",
+      "method": "POST",
+      "ms": 18,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reports/funnel",
+      "method": "GET",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reports/funnel",
+      "method": "GET",
+      "ms": 5,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "VIEW:dashboard",
+      "method": "RENDER",
+      "ms": 17,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "VIEW:leads",
+      "method": "RENDER",
+      "ms": 23,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/projects",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/summary",
+      "method": "GET",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "VIEW:demands",
+      "method": "RENDER",
+      "ms": 18,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/matches/leads",
+      "method": "GET",
+      "ms": 5,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/distribution/auto",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:matching",
+      "method": "RENDER",
+      "ms": 15,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/deliveries",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:deliveries",
+      "method": "RENDER",
+      "ms": 7,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/imports",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "VIEW:imports",
+      "method": "RENDER",
+      "ms": 7,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:partners",
+      "method": "RENDER",
+      "ms": 8,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/media-vehicles",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/media-vehicles/MEDIA_A",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "VIEW:mediaVehicles",
+      "method": "RENDER",
+      "ms": 8,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/yiche-codes",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:yicheCodes",
+      "method": "RENDER",
+      "ms": 6,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/deliveries",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/callback_events",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/integrity",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:exceptions",
+      "method": "RENDER",
+      "ms": 12,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reports/funnel",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:reports",
+      "method": "RENDER",
+      "ms": 5,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/exports",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/privacy_requests",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/privacy-notices",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "VIEW:governance",
+      "method": "RENDER",
+      "ms": 10,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/audit_log",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:settings",
+      "method": "RENDER",
+      "ms": 8,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/acceptance",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/integrity",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:acceptance",
+      "method": "RENDER",
+      "ms": 10,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "VIEW:partners",
+      "method": "RENDER",
+      "ms": 8,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/partners",
+      "method": "POST",
+      "ms": 3,
+      "status": 201
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:partners",
+      "method": "RENDER",
+      "ms": 7,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/partner-projects",
+      "method": "POST",
+      "ms": 3,
+      "status": 201
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/routes",
+      "method": "POST",
+      "ms": 3,
+      "status": 201
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:partners",
+      "method": "RENDER",
+      "ms": 7,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/partners",
+      "method": "POST",
+      "ms": 3,
+      "status": 201
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "VIEW:partners",
+      "method": "RENDER",
+      "ms": 7,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/channels",
+      "method": "POST",
+      "ms": 3,
+      "status": 201
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/summary",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/projects",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "VIEW:demands",
+      "method": "RENDER",
+      "ms": 13,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/summary",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/projects",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:demands",
+      "method": "RENDER",
+      "ms": 12,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "POST",
+      "ms": 3,
+      "status": 201
+    },
+    {
+      "path": "/api/v1/demand-sync/sources/ds_669a4667f9024faaab97/sync",
+      "method": "POST",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/summary",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/projects",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources/ds_669a4667f9024faaab97/projects",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/summary",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/projects",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:demands",
+      "method": "RENDER",
+      "ms": 14,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/demands",
+      "method": "GET",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources/ds_669a4667f9024faaab97/sync",
+      "method": "POST",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/summary",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/projects",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:demands",
+      "method": "RENDER",
+      "ms": 15,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "POST",
+      "ms": 3,
+      "status": 201
+    },
+    {
+      "path": "/api/v1/demand-sync/sources/ds_c9b7aa3f4cdc4256afe5/sync",
+      "method": "POST",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 5,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/summary",
+      "method": "GET",
+      "ms": 6,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/projects",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources/ds_c9b7aa3f4cdc4256afe5/projects",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/summary",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/projects",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "VIEW:demands",
+      "method": "RENDER",
+      "ms": 19,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "POST",
+      "ms": 3,
+      "status": 201
+    },
+    {
+      "path": "/api/v1/demand-sync/sources/ds_190d6a1a046745438eb7/sync",
+      "method": "POST",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/summary",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/projects",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources/ds_190d6a1a046745438eb7/projects",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:leads",
+      "method": "RENDER",
+      "ms": 10,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/lead-entry-options",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "POST",
+      "ms": 3,
+      "status": 422
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:leads",
+      "method": "RENDER",
+      "ms": 8,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/lead-entry-options",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "POST",
+      "ms": 3,
+      "status": 201
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/matches/leads",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/distribution/auto",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "VIEW:matching",
+      "method": "RENDER",
+      "ms": 11,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/demands",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/matches/leads",
+      "method": "GET",
+      "ms": 5,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/distribution/auto",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/matches/preview",
+      "method": "POST",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/dispatches",
+      "method": "POST",
+      "ms": 3,
+      "status": 202
+    },
+    {
+      "path": "/api/v1/deliveries",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/deliveries",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:deliveries",
+      "method": "RENDER",
+      "ms": 6,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/worker/run",
+      "method": "POST",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/deliveries",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/deliveries/dl_897dc20148234baf9c75",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/deliveries/dl_897dc20148234baf9c75/timeline",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/deliveries/dl_897dc20148234baf9c75/mock-callback",
+      "method": "POST",
+      "ms": 5,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/deliveries/dl_897dc20148234baf9c75/timeline",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/dm_8c2b28e3900b48889fd0",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/deliveries/dl_897dc20148234baf9c75/mock-callback",
+      "method": "POST",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/dm_8c2b28e3900b48889fd0",
+      "method": "GET",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/deliveries/dl_897dc20148234baf9c75/timeline",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 5,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/imports",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "VIEW:imports",
+      "method": "RENDER",
+      "ms": 8,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/imports",
+      "method": "POST",
+      "ms": 127,
+      "status": 202
+    },
+    {
+      "path": "/api/v1/imports/im_b6fc877955c740d69fb9/commit",
+      "method": "POST",
+      "ms": 6,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 5,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/imports",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/imports",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:imports",
+      "method": "RENDER",
+      "ms": 5,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/imports",
+      "method": "POST",
+      "ms": 4,
+      "status": 202
+    },
+    {
+      "path": "/api/v1/imports/im_952fcbcf28f443ad9245/commit",
+      "method": "POST",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/imports",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/channels/cfg_5261e31a921d4c158496/api-key",
+      "method": "POST",
+      "ms": 2,
+      "status": 201
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/summary",
+      "method": "GET",
+      "ms": 5,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/projects",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:demands",
+      "method": "RENDER",
+      "ms": 15,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/partner-projects/mode",
+      "method": "PATCH",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/summary",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/projects",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/distribution/auto/run",
+      "method": "POST",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/dm_8c2b28e3900b48889fd0",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/deliveries",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/deliveries/dl_3a675b5d33ff4f95a062/mock-callback",
+      "method": "POST",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/dm_8c2b28e3900b48889fd0",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/distribution/auto/run",
+      "method": "POST",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/projects",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/summary",
+      "method": "GET",
+      "ms": 5,
+      "status": 200
+    },
+    {
+      "path": "VIEW:demands",
+      "method": "RENDER",
+      "ms": 14,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/partner-projects/mode",
+      "method": "PATCH",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/sources",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demand-sync/projects",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands/summary",
+      "method": "GET",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "POST",
+      "ms": 3,
+      "status": 201
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/matches/leads",
+      "method": "GET",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands",
+      "method": "GET",
+      "ms": 5,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/distribution/auto",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "VIEW:matching",
+      "method": "RENDER",
+      "ms": 12,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/demands",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/matches/leads",
+      "method": "GET",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/distribution/auto",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/matches/preview",
+      "method": "POST",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/dispatches",
+      "method": "POST",
+      "ms": 3,
+      "status": 202
+    },
+    {
+      "path": "/api/v1/deliveries",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/worker/run",
+      "method": "POST",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/deliveries/dl_3681a686630240179028/timeline",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:leads",
+      "method": "RENDER",
+      "ms": 10,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/settings/lead-fields",
+      "method": "PATCH",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/logout",
+      "method": "POST",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/login",
+      "method": "POST",
+      "ms": 17,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:leads",
+      "method": "RENDER",
+      "ms": 6,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/settings/distribution",
+      "method": "PATCH",
+      "ms": 2,
+      "status": 403
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reports/funnel",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:reports",
+      "method": "RENDER",
+      "ms": 6,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/exports",
+      "method": "POST",
+      "ms": 2,
+      "status": 202
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reports/funnel",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/exports",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/logout",
+      "method": "POST",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/login",
+      "method": "POST",
+      "ms": 17,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reports/funnel",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/exports",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/privacy_requests",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/privacy-notices",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:governance",
+      "method": "RENDER",
+      "ms": 12,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/exports/ex_1af8310a943c4839beaf/approve",
+      "method": "POST",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/exports",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/privacy_requests",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/privacy-notices",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/logout",
+      "method": "POST",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/login",
+      "method": "POST",
+      "ms": 17,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/exports",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/privacy_requests",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/exports/ex_1af8310a943c4839beaf/download",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/exports/ex_1af8310a943c4839beaf/download",
+      "method": "GET",
+      "ms": 1,
+      "status": 403
+    },
+    {
+      "path": "/api/v1/logout",
+      "method": "POST",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/login",
+      "method": "POST",
+      "ms": 17,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/exports",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/privacy_requests",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/privacy-notices",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/yiche-codes",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "VIEW:yicheCodes",
+      "method": "RENDER",
+      "ms": 7,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/yiche-codes",
+      "method": "POST",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/yiche-codes",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/yiche-codes",
+      "method": "PATCH",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/yiche-codes",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/yiche-codes",
+      "method": "DELETE",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/yiche-codes",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/leads",
+      "method": "POST",
+      "ms": 3,
+      "status": 201
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/matches/leads",
+      "method": "GET",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/distribution/auto",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "VIEW:matching",
+      "method": "RENDER",
+      "ms": 11,
+      "status": "OK"
+    },
+    {
+      "path": "/api/v1/matches/leads",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands",
+      "method": "GET",
+      "ms": 4,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/distribution/auto",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/matches/preview",
+      "method": "POST",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/dispatches",
+      "method": "POST",
+      "ms": 3,
+      "status": 202
+    },
+    {
+      "path": "/api/v1/deliveries",
+      "method": "GET",
+      "ms": 3,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/logout",
+      "method": "POST",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/login",
+      "method": "POST",
+      "ms": 19,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "ms": 1,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/catalogs",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/demands",
+      "method": "GET",
+      "ms": 2,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/matches/leads",
+      "method": "GET",
+      "ms": 4,
+      "status": 403
+    }
+  ],
+  "aborted_at": "GOV01",
+  "error": "Error: 等待失败 login compliance Code 码已删除 当前账号没有此操作权限（FORBIDDEN）重新加载\n    at wait (/Users/oule/Documents/Codex/2026-11-04/referenced-chatgpt-conversation-this-is-an/outputs/汽车线索平台测试系统/tests/test_prelaunch_flow.cjs:6:212)\n    at async login (/Users/oule/Documents/Codex/2026-11-04/referenced-chatgpt-conversation-this-is-an/outputs/汽车线索平台测试系统/tests/test_prelaunch_flow.cjs:8:196)\n    at async /Users/oule/Documents/Codex/2026-11-04/referenced-chatgpt-conversation-this-is-an/outputs/汽车线索平台测试系统/tests/test_prelaunch_flow.cjs:42:143\n    at async run (/Users/oule/Documents/Codex/2026-11-04/referenced-chatgpt-conversation-this-is-an/outputs/汽车线索平台测试系统/tests/test_prelaunch_flow.cjs:7:101)\n    at async /Users/oule/Documents/Codex/2026-11-04/referenced-chatgpt-conversation-this-is-an/outputs/汽车线索平台测试系统/tests/test_prelaunch_flow.cjs:42:1",
+  "finished_at": "2026-11-13T07:09:33.255Z",
+  "passed": false
+}

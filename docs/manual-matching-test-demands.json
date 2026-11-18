@@ -1,0 +1,91 @@
+{
+  "created_at": "2026-11-13T06:21:14+00:00",
+  "simulation": true,
+  "count": 6,
+  "items": [
+    {
+      "demand_id": "dm_948f1c91429b4e86b756",
+      "demand_no": "FLOW-TEST-001",
+      "buyer_id": "MEDIA_A",
+      "media_id": "MEDIA_A",
+      "project": "MEMBER",
+      "brand": "宝马",
+      "model": "宝马 X5",
+      "city": "上海市",
+      "quantity": 5,
+      "lead_id": "ld_d5655597a17a499e8235",
+      "lead_no": "L000085",
+      "status": "ACTIVE"
+    },
+    {
+      "demand_id": "dm_4d1a6282bdb34b9da7bf",
+      "demand_no": "FLOW-TEST-002",
+      "buyer_id": "MEDIA_A",
+      "media_id": "MEDIA_A",
+      "project": "KA",
+      "brand": "奥迪",
+      "model": "奥迪 A6L",
+      "city": "北京市",
+      "quantity": 5,
+      "lead_id": "ld_49faf07945384121bf21",
+      "lead_no": "L000086",
+      "status": "ACTIVE"
+    },
+    {
+      "demand_id": "dm_2428b92217034f2586cd",
+      "demand_no": "FLOW-TEST-003",
+      "buyer_id": "MEDIA_B",
+      "media_id": "MEDIA_B",
+      "project": "MEMBER",
+      "brand": "宝马",
+      "model": "宝马 3系",
+      "city": "上海市",
+      "quantity": 5,
+      "lead_id": "ld_fe0fce1db98046d7947d",
+      "lead_no": "L000087",
+      "status": "ACTIVE"
+    },
+    {
+      "demand_id": "dm_f204d8458330436ebbf6",
+      "demand_no": "FLOW-TEST-004",
+      "buyer_id": "MEDIA_B",
+      "media_id": "MEDIA_B",
+      "project": "KA",
+      "brand": "宝马",
+      "model": "宝马 X5",
+      "city": "北京市",
+      "quantity": 5,
+      "lead_id": "ld_42070e724a784bf0890d",
+      "lead_no": "L000088",
+      "status": "ACTIVE"
+    },
+    {
+      "demand_id": "dm_744c2218b27440c698d6",
+      "demand_no": "FLOW-TEST-005",
+      "buyer_id": "AGENCY_A",
+      "media_id": "MEDIA_A",
+      "project": "MEMBER",
+      "brand": "奥迪",
+      "model": "奥迪 A6L",
+      "city": "上海市",
+      "quantity": 5,
+      "lead_id": "ld_663402eaab2f4f1aa55f",
+      "lead_no": "L000089",
+      "status": "ACTIVE"
+    },
+    {
+      "demand_id": "dm_23583d37da0e42b2b98f",
+      "demand_no": "FLOW-TEST-006",
+      "buyer_id": "AGENCY_A",
+      "media_id": "MEDIA_B",
+      "project": "KA",
+      "brand": "宝马",
+      "model": "宝马 3系",
+      "city": "北京市",
+      "quantity": 5,
+      "lead_id": "ld_4861d3180bb643a191fd",
+      "lead_no": "L000090",
+      "status": "ACTIVE"
+    }
+  ]
+}

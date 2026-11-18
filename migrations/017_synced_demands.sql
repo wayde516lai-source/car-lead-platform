@@ -1,0 +1,15 @@
+ALTER TABLE demand_sync_sources ADD COLUMN route_id TEXT REFERENCES routes(id);
+ALTER TABLE demand_sync_sources ADD COLUMN quantity_basis TEXT NOT NULL DEFAULT 'DAILY' CHECK(quantity_basis IN ('DAILY','TOTAL'));
+ALTER TABLE demand_sync_sources ADD COLUMN auto_enabled INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE demand_sync_projects ADD COLUMN mapping_error TEXT NOT NULL DEFAULT '';
+ALTER TABLE demands ADD COLUMN external_project_id TEXT REFERENCES demand_sync_projects(id);
+ALTER TABLE demands ADD COLUMN quantity_basis TEXT NOT NULL DEFAULT 'TOTAL';
+ALTER TABLE demands ADD COLUMN match_brand TEXT NOT NULL DEFAULT '';
+ALTER TABLE demands ADD COLUMN match_models TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE demands ADD COLUMN match_regions TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE demands ADD COLUMN all_models INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE demands ADD COLUMN all_regions INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE demands ADD COLUMN open_ended INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE demands ADD COLUMN sync_state TEXT NOT NULL DEFAULT '';
+CREATE UNIQUE INDEX demand_external_project ON demands(external_project_id) WHERE external_project_id IS NOT NULL;
+INSERT INTO schema_version VALUES(17,datetime('now'));

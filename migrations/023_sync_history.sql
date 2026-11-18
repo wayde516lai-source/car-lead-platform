@@ -1,0 +1,3 @@
+CREATE TABLE demand_sync_duplicate_rules(source_id TEXT NOT NULL REFERENCES demand_sync_sources(id),org_id TEXT NOT NULL,source_key TEXT NOT NULL,policy TEXT NOT NULL CHECK(policy='LAST_ROW_WINS'),approved_by TEXT NOT NULL,approved_at TEXT NOT NULL,PRIMARY KEY(source_id,source_key));
+CREATE TABLE demand_sync_project_history(id TEXT PRIMARY KEY,org_id TEXT NOT NULL,source_id TEXT NOT NULL REFERENCES demand_sync_sources(id),source_key TEXT NOT NULL,row_number INTEGER NOT NULL,values_json TEXT NOT NULL,raw_json TEXT NOT NULL,content_hash TEXT NOT NULL,reason TEXT NOT NULL,created_at TEXT NOT NULL,UNIQUE(source_id,source_key,content_hash));
+INSERT INTO schema_version VALUES(23,datetime('now'));

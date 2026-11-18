@@ -1,0 +1,12 @@
+ALTER TABLE settings ADD COLUMN dedup_window_days INTEGER NOT NULL DEFAULT 30 CHECK(dedup_window_days BETWEEN 1 AND 3650);
+ALTER TABLE settings ADD COLUMN ka_max_count INTEGER NOT NULL DEFAULT 1 CHECK(ka_max_count BETWEEN 1 AND 100);
+ALTER TABLE settings ADD COLUMN forbid_same_media INTEGER NOT NULL DEFAULT 1 CHECK(forbid_same_media IN (0,1));
+ALTER TABLE settings ADD COLUMN auto_dispatch_enabled INTEGER NOT NULL DEFAULT 0 CHECK(auto_dispatch_enabled IN (0,1));
+ALTER TABLE demands ADD COLUMN sale_project TEXT NOT NULL DEFAULT 'UNKNOWN' CHECK(sale_project IN ('KA','MEMBER','UNKNOWN'));
+ALTER TABLE demands ADD COLUMN auto_enabled INTEGER NOT NULL DEFAULT 0 CHECK(auto_enabled IN (0,1));
+ALTER TABLE deliveries ADD COLUMN dispatch_mode TEXT NOT NULL DEFAULT 'MANUAL';
+ALTER TABLE deliveries ADD COLUMN rule_version INTEGER;
+ALTER TABLE deliveries ADD COLUMN rule_snapshot TEXT NOT NULL DEFAULT '{}';
+CREATE TABLE auto_dispatch_decisions(org_id TEXT NOT NULL,lead_id TEXT NOT NULL REFERENCES leads(id),status TEXT NOT NULL,candidates TEXT NOT NULL,reason TEXT NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(org_id,lead_id));
+CREATE TABLE auto_dispatch_bindings(org_id TEXT NOT NULL,lead_id TEXT NOT NULL REFERENCES leads(id),demand_id TEXT NOT NULL REFERENCES demands(id),actor_id TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(org_id,lead_id));
+INSERT INTO schema_version VALUES(15,datetime('now'));

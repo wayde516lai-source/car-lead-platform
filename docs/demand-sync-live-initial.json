@@ -1,0 +1,47 @@
+{
+  "source_id": "ds_9fb9bc23cd5444418cd1",
+  "title": "湖北喆满汇1  会员线索",
+  "count": 212,
+  "headers": [
+    "下单日期",
+    "品牌",
+    "车型",
+    "城市&地区",
+    "类型",
+    "需求编号",
+    "开始时间",
+    "结束时间",
+    "下单量",
+    "需求执行状态（渠道维护）",
+    "结束时间（渠道编辑）",
+    "其他信息备注（渠道编辑）"
+  ],
+  "interval_minutes": 30,
+  "media_id": "MEDIA_A",
+  "sale_project": "MEMBER",
+  "first": {
+    "added": 212,
+    "fetched": 212,
+    "id": "dsr_70e34d03cb2b42c89782",
+    "removed": 0,
+    "status": "SUCCESS",
+    "unchanged": 0,
+    "updated": 0
+  },
+  "repeated": {
+    "added": 0,
+    "fetched": 212,
+    "id": "dsr_21d931be55c545f8b725",
+    "removed": 0,
+    "status": "SUCCESS",
+    "unchanged": 212,
+    "updated": 0
+  },
+  "native_data_preserved": {
+    "leads": 14,
+    "demands": 4,
+    "deliveries": 2,
+    "media_vehicle_items": 15741
+  },
+  "external_yiche_sending": false
+}

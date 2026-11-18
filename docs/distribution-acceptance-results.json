@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "python_regression_tests": 141,
+  "new_distribution_tests": 17,
+  "existing_ui_checks": 10,
+  "new_distribution_ui_checks": 5,
+  "scheduled_auto_dispatch": "PASSED",
+  "external_yiche_calls": false,
+  "existing_data_preserved": {
+    "leads": 14,
+    "demands": 4,
+    "deliveries": 2,
+    "media_vehicle_items": 15741
+  },
+  "preview": "http://127.0.0.1:8765",
+  "auto_dispatch_default": "OFF",
+  "scope": "本地模拟与DOM联动验收，未进行真实媒体联调或浏览器像素验收"
+}
