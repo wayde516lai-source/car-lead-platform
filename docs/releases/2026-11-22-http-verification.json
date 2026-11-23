@@ -1,0 +1,83 @@
+{
+  "target": "https://saas.asoapple.cn",
+  "scope": "配置与只读核心功能验收，无真实线索外发",
+  "checks": [
+    {
+      "name": "健康且模拟与真实外发关闭",
+      "passed": true
+    },
+    {
+      "name": "首页默认非演示模式",
+      "passed": true
+    },
+    {
+      "name": "旧管理员口令失效",
+      "passed": true
+    },
+    {
+      "name": "演示角色禁止登录",
+      "passed": true
+    },
+    {
+      "name": "独立管理员可登录",
+      "passed": true
+    },
+    {
+      "name": "读取 /api/v1/me",
+      "passed": true
+    },
+    {
+      "name": "读取 /api/v1/catalogs",
+      "passed": true
+    },
+    {
+      "name": "读取 /api/v1/demands/summary",
+      "passed": true
+    },
+    {
+      "name": "读取 /api/v1/demand-sync/sources",
+      "passed": true
+    },
+    {
+      "name": "读取 /api/v1/demand-sync/projects?page_size=20",
+      "passed": true
+    },
+    {
+      "name": "读取 /api/v1/matches/leads?page_size=20",
+      "passed": true
+    },
+    {
+      "name": "读取 /api/v1/reports/funnel",
+      "passed": true
+    },
+    {
+      "name": "业务账本一致性",
+      "passed": true
+    },
+    {
+      "name": "手动及自动分发关闭",
+      "passed": true
+    },
+    {
+      "name": "私有路径不可访问 /data/platform.sqlite",
+      "passed": true
+    },
+    {
+      "name": "私有路径不可访问 /.git/config",
+      "passed": true
+    },
+    {
+      "name": "私有路径不可访问 /docs/开发规范.md",
+      "passed": true
+    },
+    {
+      "name": "无效回调拒绝",
+      "passed": true
+    },
+    {
+      "name": "验收会话已退出",
+      "passed": true
+    }
+  ],
+  "passed": true
+}

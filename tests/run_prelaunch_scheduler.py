@@ -13,7 +13,7 @@ with tempfile.TemporaryDirectory(prefix='prelaunch-scheduler-') as folder:
   c.execute("UPDATE demands SET status='ACTIVE',sale_project='MEMBER',target_total=2,daily_limit=2 WHERE id=?",(d['id'],))
  cfg=next(r for r in p.catalogs(A)['partners'] if r['id']=='MEDIA_B')['cooperation_projects'][0]
  p.project_mode_update(A,'MEDIA_B','MEMBER',{'matching_mode':'AUTO','version':cfg['version']})
- lead=p.create_lead(A,{'name':'定时器虚构客户','phone':'13900009201','brand_name':'宝马','model':'宝马 X5','city':'上海市','is_sold':'否'})
+ lead=p.create_lead(A,{'supplier_id':'SOURCE_A','name':'定时器虚构客户','phone':'13900009201','brand_name':'宝马','model':'宝马 X5','city':'上海市','is_sold':'否'})
  source=DemandSync(p).save(A,{'name':'定时器隔离需求','url':'https://docs.qq.com/sheet/DQA_SCHED?tab=BB08J2','partner_id':'MEDIA_C','media_id':'MEDIA_C','sale_project':'MEMBER','enabled':1,'interval_minutes':1})
  wrapper="""import sys,socket
 sys.path.insert(0,sys.argv[1]);sys.path.insert(0,sys.argv[1]+'/tests')

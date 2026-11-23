@@ -28,3 +28,35 @@ class ProjectFilterTests(unittest.TestCase):
  def test_multi_models_split_and_typed_search(self):
   url='https://docs.qq.com/sheet/DTESTMULTI?tab=BB08J2';rows=[record(key='M1',brand='比亚迪',model='海豚、海鸥，海豹06',regions='上海市')];self.data[url]={'title':'multi','headers':list(rows[0]['values']),'records':rows};source=self.sync.save(A,{'name':'multi','url':url,'partner_id':'MEDIA_A','media_id':'MEDIA_A','sale_project':'MEMBER','enabled':0});self.sync.run(A,source['id'])
   r=self.query(brand='比亚',model='海豹',city='上海');self.assertEqual(r['total'],1);self.assertEqual(r['items'][0]['values']['车型'],'海豚、海鸥，海豹06');self.assertEqual({v['value'] for v in r['filter_options']['model']},{'海豚','海鸥','海豹06'})
+
+ def test_summary_covers_filtered_rows_across_pages_and_separates_units(self):
+  for url,data in self.data.items():
+   for row in data['records']:
+    row['values']['下单量']={'A1':'2','A2':'3','B1':'7'}[row['key']]
+  for source in self.sync.sources(A):
+   if source['partner_id']=='MEDIA_B':
+    self.sync.save(A,{'version':source['version'],'quantity_basis':'TOTAL'},source['id'])
+   self.assertEqual(self.sync.run(A,source['id'])['status'],'SUCCESS')
+  summary=self.query()['summary']
+  self.assertEqual(summary,{'brand_count':2,'city_count':3,'nationwide_demands':1,
+                           'order_quantities':{'daily':5,'total':7,'invalid_rows':0}})
+  second=self.sync.all_projects(A,page=2,page_size=20)
+  self.assertEqual(second['items'],[]);self.assertEqual(second['summary'],summary)
+  selected=self.query(partner_id='MEDIA_B')['summary']
+  self.assertEqual(selected['brand_count'],1);self.assertEqual(selected['city_count'],1)
+  self.assertEqual(selected['order_quantities'],{'daily':0,'total':7,'invalid_rows':0})
+  closed=self.query(match_status='CLOSED')['summary']
+  self.assertEqual(closed['city_count'],0);self.assertEqual(closed['nationwide_demands'],1)
+  self.assertEqual(closed['order_quantities']['daily'],3)
+  other=self.sync.all_projects({'id':'u_other','role':'admin','org_id':'other'})['summary']
+  self.assertEqual(other,{'brand_count':0,'city_count':0,'nationwide_demands':0,
+                         'order_quantities':{'daily':0,'total':0,'invalid_rows':0}})
+
+ def test_summary_normalizes_city_suffix_and_does_not_multiply_multi_city_quantity(self):
+  url=next(url for url in self.data if 'ONE' in url)
+  self.data[url]['records'][0]['values']['城市&地区']='上海市、上海，北京市/北京'
+  source=next(s for s in self.sync.sources(A) if s['partner_id']=='MEDIA_A')
+  self.assertEqual(self.sync.run(A,source['id'])['status'],'SUCCESS')
+  summary=self.query(partner_id='MEDIA_A',brand='宝马')['summary']
+  self.assertEqual(summary['city_count'],2)
+  self.assertEqual(summary['order_quantities']['daily'],1)

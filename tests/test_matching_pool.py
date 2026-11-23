@@ -8,7 +8,7 @@ class MatchingPoolTests(unittest.TestCase):
   self.n=0
  def tearDown(self):self.temp.cleanup()
  def create(self,**changes):
-  self.n+=1;return self.p.create_lead(A,dict({'name':'筛选测试','phone':f'13900008{self.n:03}','brand_name':'宝马','series_id':'BMW_X5','city':'上海市','is_sold':'否'},**changes))['lead_id']
+  self.n+=1;return self.p.create_lead(A,dict({'supplier_id':'SOURCE_A','name':'筛选测试','phone':f'13900008{self.n:03}','brand_name':'宝马','series_id':'BMW_X5','city':'上海市','is_sold':'否'},**changes))['lead_id']
  def pool(self,**kw):return self.p.matching_leads(A,**kw)
  def rows(self,**kw):return self.pool(**kw)['items']
  def test_unavailable_hidden_and_no_status_column(self):

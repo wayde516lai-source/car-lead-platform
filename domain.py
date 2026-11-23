@@ -3,6 +3,8 @@ from contextlib import contextmanager,nullcontext
 from datetime import date, datetime,timedelta,timezone
 from pathlib import Path
 from security import Vault,canonical,digest,password_hash,sign
+from demand_statistics import summarize_order_quantities
+from project_availability import demand_project_condition
 import yiche
 import yiche_transport
 from zhemanhui_integration import ZhemanhuiMixin
@@ -26,7 +28,7 @@ class Fault(Exception):
  def __init__(self,code,message,status=422):self.code=code;self.message=message;self.status=status
 LEAD_COLUMNS = (
  ('lead_no','编号'), ('customer','姓名'), ('phone','电话'), ('brand','品牌'), ('model','车型'), ('city','城市'),
- ('acquisition_channel','获客渠道'), ('is_sold','是否售卖'), ('sold_media','售卖媒体'), ('project','项目'),
+ ('supplier','线索供应商'), ('acquisition_channel','获客渠道'), ('is_sold','是否售卖'), ('sold_media','售卖媒体'), ('project','项目'),
  ('sales_count','已匹配媒体'), ('sold_at','售卖时间'), ('collected_at','采集时间'),
 )
 
@@ -35,9 +37,13 @@ COMPOUND_SURNAMES = {'欧阳','司马','上官','诸葛','司徒','司空','东�
                      '轩辕','钟离','澹台','公羊','濮阳','公冶','太史','呼延','赫连','拓跋','单于'}
 
 def customer_label(name, title):
+ """展示姓氏加称谓；原始姓名只有先生/女士时保留原值，不构造姓氏。"""
  name = name.strip()
  if not name:
   return ''
+ # 称谓本身是合法原始姓名，不能剥离后变成空值。
+ if name in ('先生','女士'):
+  return name
  for suffix in ('先生','女士'):
   if name.endswith(suffix):
    title = title or suffix
@@ -59,6 +65,7 @@ from synced_demands import SyncedDemandsMixin
 class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
  def __init__(self,root):
   self.yiche_live=None
+  self.mock_enabled=True
   self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True);self.dbpath=self.root/'platform.sqlite';self.vault=Vault(self.root)
   c=self.connect()
   try:c.executescript((Path(__file__).parent/'migrations/001_initial.sql').read_text())
@@ -69,7 +76,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    migrations = ((2, '002_yiche.sql'), (3, '003_media_vehicles.sql'),
                  (4, '004_media_vehicle_schedule.sql'), (5, '005_yiche_submissions.sql'),
                  (6, '006_lead_fields.sql'), (7, '007_lead_number_permission.sql'),
-                 (8, '008_yiche_code_management.sql'), (9, '009_cooperation_terms.sql'), (10, '010_source_api_details.sql'), (11, '011_lead_sales.sql'), (12, '012_manual_models_gender.sql'), (13, '013_import_acquisition_channel.sql'), (14, '014_delivery_project.sql'), (15, '015_distribution_rules.sql'), (16, '016_demand_sync.sql'), (17, '017_synced_demands.sql'), (18, '018_partner_project.sql'), (19, '019_source_partner.sql'), (20, '020_partner_projects.sql'), (21, '021_agency_final_media.sql'), (22, '022_explicit_projects.sql'), (23, '023_sync_history.sql'), (24, '024_zhemanhui.sql'), (25, '025_demand_excel.sql'), (26, '026_optional_excel_demand_no.sql'))
+                 (8, '008_yiche_code_management.sql'), (9, '009_cooperation_terms.sql'), (10, '010_source_api_details.sql'), (11, '011_lead_sales.sql'), (12, '012_manual_models_gender.sql'), (13, '013_import_acquisition_channel.sql'), (14, '014_delivery_project.sql'), (15, '015_distribution_rules.sql'), (16, '016_demand_sync.sql'), (17, '017_synced_demands.sql'), (18, '018_partner_project.sql'), (19, '019_source_partner.sql'), (20, '020_partner_projects.sql'), (21, '021_agency_final_media.sql'), (22, '022_explicit_projects.sql'), (23, '023_sync_history.sql'), (24, '024_zhemanhui.sql'), (25, '025_demand_excel.sql'), (26, '026_optional_excel_demand_no.sql'), (27, '027_replace_demand_source.sql'), (28, '028_partner_project_enabled.sql'), (29, '029_ka_demand_api.sql'))
    for version, filename in migrations:
     if c.execute('SELECT 1 FROM schema_version WHERE version=?', (version,)).fetchone():
      continue
@@ -135,7 +142,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   try:
    out={t:[dict(x) for x in c.execute('SELECT * FROM '+t+" WHERE org_id=?"+(" AND id NOT LIKE 'INTAKE:%'" if t=='channels' else ''),(a['org_id'],))] for t in ['partners','channels','routes']}
    for p in out['partners']:
-    p['cooperation_projects']=[dict(r) for r in c.execute('SELECT project,matching_mode,version FROM partner_projects WHERE org_id=? AND partner_id=? ORDER BY project DESC',(a['org_id'],p['id']))]
+    p['cooperation_projects']=[dict(r) for r in c.execute('SELECT project,matching_mode,version,enabled FROM partner_projects WHERE org_id=? AND partner_id=? ORDER BY project DESC',(a['org_id'],p['id']))]
    for p in out['partners']:
     p['final_media_ids']=[r['media_id'] for r in c.execute('SELECT media_id FROM agency_final_media WHERE org_id=? AND agency_id=? ORDER BY media_id',(a['org_id'],p['id']))] if p['role']=='AGENCY' else ([p['id']] if p['role']=='MEDIA' else [])
    out['vehicles']=[dict(x) for x in c.execute('SELECT * FROM catalog WHERE series_id NOT IN (SELECT series_id FROM manual_vehicle_entries WHERE org_id!=?)',(a['org_id'],))];out['cities']=[{'code':'310100','name':'上海市'},{'code':'110100','name':'北京市'}];out['settings']=dict(c.execute('SELECT * FROM settings WHERE org_id=?',(a['org_id'],)).fetchone());return out
@@ -289,6 +296,23 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
                VALUES(?,?,?,'MANUAL',?)""",(channel_id,a['org_id'],'平台录入与导入',source_id))
   return channel_id
 
+ def _supplier_intake_channel(self,c,a,supplier_id):
+  """必选本组织有效供应商，优先复用其已启用采购渠道，不改历史线索归属。"""
+  if not isinstance(supplier_id,str) or not supplier_id.strip():raise Fault('SUPPLIER_REQUIRED','请选择线索供应商')
+  supplier=self.one(c,'partners',supplier_id,a)
+  if supplier['role']!='SOURCE' or supplier_id.startswith('INTAKE_SOURCE:'):raise Fault('SUPPLIER_INVALID','请选择合作与渠道中线索采购的供应商')
+  if not supplier['enabled'] or supplier['contract_end']<=now():raise Fault('SUPPLIER_UNAVAILABLE','该供应商已停用或合同已到期')
+  channels=c.execute("SELECT id,enabled FROM channels WHERE org_id=? AND source_partner_id=? ORDER BY CASE type WHEN 'PURCHASE' THEN 0 ELSE 1 END,id",(a['org_id'],supplier_id)).fetchall()
+  if channels:
+   available=next((row for row in channels if row['enabled']),None)
+   if not available:raise Fault('SOURCE_BLOCKED','该供应商的来源渠道已停用')
+   return available['id']
+  channel_id='SUPPLIER_INTAKE:'+digest(canonical([a['org_id'],supplier_id]))[:24]
+  c.execute("INSERT OR IGNORE INTO channels(id,org_id,name,type,source_partner_id) VALUES(?,?,?,'MANUAL',?)",(channel_id,a['org_id'],'手动/表格录入 · '+supplier['name'],supplier_id))
+  channel=self.one(c,'channels',channel_id,a)
+  if not channel['enabled']:raise Fault('SOURCE_BLOCKED','该供应商的录入渠道已停用')
+  return channel_id
+
  def lead_entry_options(self,a):
   self.require(a,'read')
   c=self.connect()
@@ -304,7 +328,8 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
     key=f"media:{row['media_id']}:{row['brand_id']}:{row['series_id']}"
     models[key]={'series_id':key,'brand_name':row['brand_name'],'series_name':row['series_name']}
     existing.add(pair)
-   return {'models':list(models.values())}
+   suppliers=[dict(row) for row in c.execute("SELECT id,name FROM partners WHERE org_id=? AND role='SOURCE' AND enabled=1 AND contract_end>? AND id NOT LIKE 'INTAKE_SOURCE:%' ORDER BY name,id",(a['org_id'],now()))]
+   return {'models':list(models.values()),'suppliers':suppliers}
   finally:c.close()
 
  def _entry_fields(self,c,a,data,register=True):
@@ -392,9 +417,10 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   self.require(a,'write')
   if not isinstance(data,dict):raise Fault('SCHEMA_INVALID','线索须为对象')
   with self.tx() as c:
+   channel=self._supplier_intake_channel(c,a,data.get('supplier_id'))
    row=self._entry_fields(c,a,data)
    row.setdefault('source_record_id',uid('manual_'))
-   return self._ingest(c,a,self._intake_channel(c,a),row,direct=True)
+   return self._ingest(c,a,channel,row,direct=True)
 
  def _sale_history(self,c,lead_id):
   return [dict(row) for row in c.execute("""SELECT s.media_id,p.name AS media_name,s.project,s.sold_at
@@ -606,7 +632,8 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   if lead['status']=='READY' and parse(lead['expires_at'])<=parse(at or now()):
    lead.update(status='EXPIRED',reason='LEAD_EXPIRED')
   return lead
- def _block(self,c,a,l,d,skip_delivery=None,project=None,match_context=None):
+ def _basic_match_block(self,c,a,l,d,project=None,match_context=None):
+  """基础业务条件：有效线索、需求时间、品牌车型城市及项目，不检查执行开关。"""
   l=self._effective_lead(l)
   if l['status']!='READY':return 'LEAD_'+('INVALID' if l['status']=='QUARANTINED' else l['status'])
   if parse(l['collected_at'])<parse(now())-timedelta(hours=d['max_age_hours']):return 'DEMAND_LEAD_TOO_OLD'
@@ -626,10 +653,18 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
     if not (wide and wide['all_series']) and lead_vehicle['series_name']!=demand_vehicle['series_name']:
      return 'MODEL_MISMATCH'
    if l['city_code'] not in json.loads(d['city_codes']):return 'CITY_MISMATCH'
+  return None
+ def _block(self,c,a,l,d,skip_delivery=None,project=None,match_context=None):
+  reason=self._basic_match_block(c,a,l,d,project,match_context)
+  if reason:return reason
   r=self.one(c,'routes',d['route_id'],a)
+  # 既有软米适配器仅确认会员协议，KA拉需求不等于已确认KA提交接口。
+  if d.get('api_submit_limit') is not None and r['adapter_version']=='zhemanhui-v1':return 'KA_DELIVERY_NOT_CONFIGURED'
   if d.get('external_project_id'):
    buyer=self.one(c,'partners',d['receiver_id'],a)
    if not c.execute('SELECT 1 FROM partner_projects WHERE org_id=? AND partner_id=? AND project=?',(a['org_id'],d['buyer_id'],d['sale_project'])).fetchone():return 'COOPERATION_PROJECT_REQUIRED'
+  if not self.mock_enabled and r['adapter_version']=='mock-v1' and not (self.yiche_live and r['receiver_id']=='MEDIA_A' and r['media_id']=='MEDIA_A'):return 'MOCK_DISABLED'
+  if not self._demand_project_enabled(c,a,d,project):return 'PROJECT_PAUSED'
   if not r['enabled']:return 'ROUTE_UNAVAILABLE'
   ch=self.one(c,'channels',l['channel_id'],a)
   if not ch['enabled']:return 'SOURCE_BLOCKED'
@@ -650,7 +685,12 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    except ValueError:return 'YICHE_CONFIG_REQUIRED'
    extra=self._yiche_lead(l)
    if any(k in cfg and k in extra and cfg[k]!=extra[k] for k in yiche.LEAD_IDS):return 'YICHE_MAPPING_MISMATCH'
-  if d.get('quantity_basis')=='DAILY':
+  if d.get('api_submit_limit') is not None:
+   from ka_demand_sources import submission_usage
+   if d['api_quota_day']!=day().replace('-',''):return 'API_QUOTA_STALE'
+   reserved,submitted=submission_usage(c,d['id'],skip_delivery)
+   if reserved+submitted>=d['api_submit_limit']:return 'DAILY_QUOTA_FULL'
+  elif d.get('quantity_basis')=='DAILY':
    reserved,valid=self._daily_counts(c,d['id'],skip_delivery)
    if reserved+valid>=d['target_total']:return 'DAILY_QUOTA_FULL'
   elif not skip_delivery:
@@ -765,6 +805,8 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
       if not self._yiche_vehicle_exists(c,a['org_id'],cfg,extra):
        self._cancel(c,a,d['id'],'YICHE_CATALOG_MISMATCH');continue
       request,token_hash=yiche_transport.prepare(self.yiche_live,cfg,extra,payload['customer'],d['id'])
+    # 正式环境不允许未知适配器或旧交付快照回退成模拟成功。
+    if not self.mock_enabled and not live and not zmh:self._cancel(c,a,d['id'],'MOCK_DISABLED');continue
     r=json.loads(d['route_snapshot']);mode=r['mode']
     if d['day']!=day():
      dc=c.execute('SELECT * FROM daily_counter WHERE demand_id=? AND day=?',(dm['id'],day())).fetchone()
@@ -992,6 +1034,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   return {'processed':count}
  def mock_callback(self,a,id,action,version=None,event_id=None):
   self.require(a,'engineering')
+  if not self.mock_enabled:raise Fault('MOCK_DISABLED','当前环境已禁用模拟反馈',403)
   c=self.connect();d=self.one(c,'deliveries',id,a);c.close()
   dim='storage' if action in ['STORED','REJECTED'] else 'validity';ty={'STORED':'MEDIA_STORED','REJECTED':'MEDIA_REJECTED','VALID':'VALIDITY_UPDATED','INVALID':'VALIDITY_UPDATED'}.get(action)
   if not ty:raise Fault('ACTION_INVALID','未知模拟动作')
@@ -999,6 +1042,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   res=self.receive_callback(a,d['receiver_id'],e);self.process_inbox(a);return res
  def reconcile(self,a,id):
   self.require(a,'engineering')
+  if not self.mock_enabled:raise Fault('MOCK_DISABLED','当前查询仅支持模拟，正式环境禁止模拟查询结果',403)
   with self.tx() as c:
    d=self.one(c,'deliveries',id,a);r=json.loads(d['route_snapshot'])
    if c.execute('SELECT 1 FROM yiche_submissions WHERE delivery_id=?',(id,)).fetchone():raise Fault('QUERY_UNSUPPORTED','易车接口未定义结果查询，请等待回调',409)
@@ -1087,6 +1131,9 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   out={}
   if 'customer' in fields:
    out['customer']=customer_label(self.vault.decrypt(r['name_cipher']),r['customer_title'])
+  if 'supplier' in fields:
+   supplier=c.execute('SELECT p.id,p.name FROM channels ch JOIN partners p ON p.id=ch.source_partner_id AND p.org_id=ch.org_id WHERE ch.id=? AND ch.org_id=?',(r['channel_id'],a['org_id'])).fetchone()
+   out['supplier']=supplier['name'] if supplier else '';out['supplier_id']=supplier['id'] if supplier else ''
   if 'lead_no' in fields:out['lead_no']=r['lead_no']
   if 'city' in fields:
    out['city']={'310100':'上海市','110100':'北京市'}.get(r['city_code'],r['city_code'])
@@ -1156,6 +1203,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    'brand':('filter_brand_id',lambda r:r['filter_brand']),
    'model':('series_id',lambda r:r['filter_model'] or r['series_id']),
    'supplier':('filter_supplier_id',lambda r:r['filter_supplier']),
+   'acquisition_channel':('acquisition_channel',lambda r:r['acquisition_channel']),
    'channel':('channel_id',lambda r:r['filter_channel']),
   }
   options=self._vehicle_filter_options(c,a,fields) if fields & {'brand','model'} else {}
@@ -1226,7 +1274,8 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    if table=='leads':
     rows=self._lead_rows(c,a)
     return self._lead_list(c,a,rows,page_size,page,q,status,channel,lead_filters or {})
-   rows=[dict(r) for r in c.execute('SELECT * FROM '+table+' WHERE org_id=? ORDER BY '+('received_at' if table=='callback_events' else 'created_at')+' DESC,id DESC',(a['org_id'],))]
+   visibility=" AND COALESCE(demands.sync_state,'')!='REMOVED' AND "+demand_project_condition('demands') if table=='demands' else ''
+   rows=[dict(r) for r in c.execute('SELECT * FROM '+table+' WHERE org_id=?'+visibility+' ORDER BY '+('received_at' if table=='callback_events' else 'created_at')+' DESC,id DESC',(a['org_id'],))]
    if status:rows=[r for r in rows if r.get('status',r.get('send_status'))==status]
    if channel:rows=[r for r in rows if r.get('channel_id')==channel]
    if media:rows=[r for r in rows if r.get('media_id')==media]
@@ -1255,7 +1304,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
     'city':('city','city_code'),
     'brand':('brand',),
     'model':('model','series_id'),
-    'supplier':('supplier',),
+    'supplier':('supplier','supplier_id'),
     'channel':('channel','channel_id'),
     'acquisition_channel':('acquisition_channel',),
     'collected_at':('collected_at','expires_at'),
@@ -1334,12 +1383,16 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    for ch,med in sorted({(d['channel_id'],d['media_id']) for d in sent}):groups.append({'channel_id':ch,'media_id':med,**metrics([d for d in sent if d['channel_id']==ch and d['media_id']==med])})
    out={'leads':len(ls),'ready':sum(self._effective_lead(l)['status']=='READY' for l in ls),'ingestions':c.execute('SELECT count(*) FROM ingestions WHERE org_id=?',(a['org_id'],)).fetchone()[0],'deliveries':len(ds),'unique_sent_leads':len({d['lead_id'] for d in sent}),'metrics':metrics(sent),'groups':groups,'multisale':round(len(sent)/max(1,len({d['lead_id'] for d in sent})),2),'as_of':now()}
    out['matchable']=sum(1 for _ in self._matchable_lead_rows(c,a))
+   # matchable旧字段保留完整可分发含义，新增两项供总览明确展示。
+   out['dispatchable']=out['matchable']
+   out['business_matchable']=sum(1 for _ in self._business_match_lead_rows(c,a))
    # Attribute each demand to its purchasing entity, so agency forwarding is
    # counted once rather than again under the destination media.
    from synced_demands import norm
-   demand_rows=c.execute("SELECT d.status,p.role,COALESCE(NULLIF(trim(d.match_brand),''),cat.brand_name) AS brand FROM demands d JOIN partners p ON p.id=d.buyer_id AND p.org_id=d.org_id LEFT JOIN catalog cat ON cat.series_id=d.series_id WHERE d.org_id=? AND COALESCE(d.sync_state,'')!='REMOVED'",(a['org_id'],)).fetchall()
+   demand_rows=c.execute("SELECT d.status,COALESCE(d.api_submit_limit,d.target_total) AS target_total,d.quantity_basis,d.api_vehicles,p.role,COALESCE(NULLIF(trim(d.match_brand),''),cat.brand_name) AS brand FROM demands d JOIN partners p ON p.id=d.buyer_id AND p.org_id=d.org_id LEFT JOIN catalog cat ON cat.series_id=d.series_id WHERE d.org_id=? AND COALESCE(d.sync_state,'')!='REMOVED' AND "+demand_project_condition('d'),(a['org_id'],)).fetchall()
    partner_counts={r['role']:r['n'] for r in c.execute("SELECT role,count(*) AS n FROM partners WHERE org_id=? AND role IN ('MEDIA','AGENCY') GROUP BY role",(a['org_id'],))}
-   out['overview']={'media_count':partner_counts.get('MEDIA',0),'agency_count':partner_counts.get('AGENCY',0),'media_demands':sum(r['role']=='MEDIA' for r in demand_rows),'agency_demands':sum(r['role']=='AGENCY' for r in demand_rows),'total_demands':len(demand_rows),'brand_count':len({norm(r['brand']) for r in demand_rows if r['brand'] and norm(r['brand'])}),'active_demands':sum(r['status']=='ACTIVE' for r in demand_rows)}
+   out['overview']={'media_count':partner_counts.get('MEDIA',0),'agency_count':partner_counts.get('AGENCY',0),'media_demands':sum(r['role']=='MEDIA' for r in demand_rows),'agency_demands':sum(r['role']=='AGENCY' for r in demand_rows),'total_demands':len(demand_rows),'brand_count':len({norm(brand) for r in demand_rows for brand in ([x['brand'] for x in json.loads(r['api_vehicles'])] if r['api_vehicles']!='[]' else [r['brand']]) if brand and norm(brand)}),'active_demands':sum(r['status']=='ACTIVE' for r in demand_rows)}
+   out['overview']['order_quantities']=summarize_order_quantities((r['quantity_basis'],r['target_total']) for r in demand_rows if r['target_total']>0)
    if 'finance' in PERMS[a['role']]:out['income_fen']=sum(d['price_fen'] for d in sent if d['settlement_status'] in ['ELIGIBLE','CONFIRMED']);out['cost_fen']=sum(l['cost_fen'] or 0 for l in ls if l['id'] in {d['lead_id'] for d in sent});out['unknown_cost_leads']=sum(l['cost_fen'] is None for l in ls)
    return out
   finally:c.close()
@@ -1363,7 +1416,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    l=self.one(c,'leads',id,a);self.audit(c,a,'REVEAL',id,{'purpose':purpose});return {'phone':self.vault.decrypt(l['phone_cipher']),'name':self.vault.decrypt(l['name_cipher'])}
  def _record_excel_error(self,a,error_type,code):
   with self.tx() as c:self.audit(c,a,'IMPORT_FILE_REJECTED','excel',{'exception_type':error_type,'code':code})
- def import_preview(self,a,filename,content,channel=None,sheet=None,mapping=None):
+ def import_preview(self,a,filename,content,channel=None,sheet=None,mapping=None,supplier_id=None):
   self.require(a,'write')
   if len(content)>10*1024*1024:raise Fault('FILE_TOO_LARGE','文件不得大于10MB')
   format_notice=''
@@ -1400,7 +1453,10 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   aliases={'来源记录编号':'source_record_id','客户姓名':'name','姓名':'name','性别':'gender','称谓':'customer_title','手机号':'phone','电话':'phone','品牌':'brand_name','品牌名称':'brand_name','车型':'model','车系名称':'model','城市':'city','获客渠道':'acquisition_channel','是否售卖':'is_sold','售卖媒体':'sale_media','项目':'sale_project','售卖时间':'sold_at','车系':'series_id','城市编码':'city_code','采集时间':'collected_at','授权接收方':'recipients','授权证据':'evidence_ref','成本分':'cost_fen'};headers=[str(x or '').strip() for x in vals[0]];mapping=mapping or {};rows=[];preview=[];seen=set()
   c=self.connect()
   try:
-   if not channel:channel=self._intake_channel(c,a)
+   if supplier_id:
+    if channel and self.one(c,'channels',channel,a)['source_partner_id']!=supplier_id:raise Fault('SUPPLIER_CHANNEL_CONFLICT','所选供应商与来源渠道不一致')
+    channel=self._supplier_intake_channel(c,a,supplier_id)
+   elif not channel:raise Fault('SUPPLIER_REQUIRED','请选择线索供应商')
    self.one(c,'channels',channel,a)
    for idx,values in enumerate(vals[1:],2):
     if not any(v is not None and str(v).strip() for v in values):continue

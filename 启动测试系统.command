@@ -15,7 +15,7 @@ echo $! > data/server.pid
 for TEST_ATTEMPT in {1..20}; do
   if curl -fsS http://127.0.0.1:8765/health >/dev/null 2>&1; then
     open http://127.0.0.1:8765
-    echo '已打开测试系统。账号 admin，测试密码 Demo2026!'
+    echo '已打开系统，请使用已创建的账号登录。'
     exit 0
   fi
   sleep 0.25

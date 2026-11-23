@@ -20,7 +20,7 @@ class SyncedDemandTests(unittest.TestCase):
   result=self.sync.run(A,self.source['id']);self.assertEqual(result['status'],'SUCCESS',result)
   c=self.p.connect();self.ds=[dict(r) for r in c.execute('SELECT * FROM demands WHERE external_project_id IS NOT NULL ORDER BY demand_no')];c.close();self.d=self.ds[0] if self.ds else None;return result
  def lead(self,model='宝马 X5',city='保山市',brand='宝马'):
-  self.seq+=1;return self.p.create_lead(A,{'name':'同步匹配测试','phone':f'13900005{self.seq:03}','brand_name':brand,'model':model,'city':city,'is_sold':'否'})['lead_id']
+  self.seq+=1;return self.p.create_lead(A,{'supplier_id':'SOURCE_A','name':'同步匹配测试','phone':f'13900005{self.seq:03}','brand_name':brand,'model':model,'city':city,'is_sold':'否'})['lead_id']
  def preview(self,lid,d=None):return self.p.preview(A,[lid],[(d or self.d)['id']])['items'][0]
  def send(self,lid,key='send',mode='MANUAL'):
   return self.p.dispatch(A,[(lid,self.d['id'])],key,projects={self.d['id']:'MEMBER'},mode=mode)

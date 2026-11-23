@@ -1,0 +1,38 @@
+{
+  "applied": true,
+  "before": {
+    "leads": 90,
+    "demands": 380,
+    "deliveries": 26,
+    "demand_sync_projects": 425
+  },
+  "removed": {
+    "leads": 34,
+    "ingestions": 34,
+    "consents": 45,
+    "demands": 10,
+    "demand_versions": 35,
+    "deliveries": 26,
+    "hops": 27,
+    "attempts": 25,
+    "dedup_registry": 25,
+    "daily_counter": 3,
+    "quota_ledger": 31,
+    "outbox": 26,
+    "callback_events": 10,
+    "inbox": 10,
+    "privacy_requests": 1,
+    "auto_dispatch_decisions": 29
+  },
+  "after": {
+    "leads": 56,
+    "demands": 370,
+    "deliveries": 0,
+    "demand_sync_projects": 425
+  },
+  "backup": {
+    "file": "backup-20261122-160304.sqlite.enc",
+    "encrypted": true,
+    "note": "本地测试备份；密钥须另行安全备份"
+  }
+}

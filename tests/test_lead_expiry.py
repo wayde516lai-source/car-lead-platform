@@ -6,7 +6,7 @@ A={'id':'u_admin','org_id':'demo','role':'admin'}
 class LeadExpiryTests(unittest.TestCase):
  def setUp(self):
   self.temp=TemporaryDirectory();self.p=Platform(self.temp.name);self.p.seed()
-  self.l=self.p.create_lead(A,{'name':'时效测试','phone':'13900008651','brand_name':'宝马','series_id':'BMW_X5','city':'上海市','is_sold':'否'})['lead_id']
+  self.l=self.p.create_lead(A,{'supplier_id':'SOURCE_A','name':'时效测试','phone':'13900008651','brand_name':'宝马','series_id':'BMW_X5','city':'上海市','is_sold':'否'})['lead_id']
   self.d=next(d['id'] for d in self.p.list(A,'demands')['items'] if d['route_id']=='DIRECT_B')
  def tearDown(self):self.temp.cleanup()
  def test_expired_list_detail_preview_dispatch_and_filters_agree_without_maintenance(self):

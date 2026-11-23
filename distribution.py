@@ -1,15 +1,41 @@
 """Shared dispatch policy, configuration and local automatic allocation."""
 import json
+from project_availability import demand_project_condition
 
 class DistributionMixin:
  def _ensure_partner_projects(self,c,org,partner,projects=('MEMBER','KA')):
   for project in projects:c.execute('INSERT OR IGNORE INTO partner_projects(org_id,partner_id,project) VALUES(?,?,?)',(org,partner,project))
+
+ def _demand_project_enabled(self,c,a,d,project=None):
+  """共同校验主体与项目开关；UNKNOWN需求继承主体默认项目。"""
+  selected=project if project in ('MEMBER','KA') else d['sale_project']
+  row=c.execute("SELECT 1 FROM partners owner JOIN partner_projects p ON p.org_id=owner.org_id AND p.partner_id=owner.id WHERE owner.org_id=? AND owner.id=? AND owner.enabled=1 AND p.enabled=1 AND p.project=CASE WHEN ? IN ('MEMBER','KA') THEN ? ELSE COALESCE(owner.cooperation_project,'MEMBER') END",(a['org_id'],d['buyer_id'],selected,selected)).fetchone()
+  return bool(row)
+
+ def project_status_update(self,a,buyer,project,data):
+  """只更改指定主体项目，暂停时取消该项目未发送预占，历史和另一项目不变。"""
+  from domain import Fault
+  self.require(a,'settings')
+  if project not in ('MEMBER','KA') or type(data.get('enabled')) not in (int,bool) or data['enabled'] not in (0,1):raise Fault('PROJECT_STATUS_INVALID','请选择会员或KA项目及合法启用状态')
+  with self.tx() as c:
+   partner=self.one(c,'partners',buyer,a)
+   if partner['role'] not in ('MEDIA','AGENCY'):raise Fault('PARTNER_INVALID','仅媒体或乙方支持线索供应项目')
+   current=c.execute('SELECT * FROM partner_projects WHERE org_id=? AND partner_id=? AND project=?',(a['org_id'],buyer,project)).fetchone()
+   if not current:raise Fault('COOPERATION_PROJECT_REQUIRED','该合作项目尚未开通')
+   if data.get('version')!=current['version']:raise Fault('VERSION_CONFLICT','项目配置已变化，请刷新重试',409)
+   enabled=int(data['enabled'])
+   c.execute('UPDATE partner_projects SET enabled=?,version=version+1 WHERE org_id=? AND partner_id=? AND project=?',(enabled,a['org_id'],buyer,project))
+   if not enabled:
+    for row in c.execute("SELECT x.id FROM deliveries x JOIN demands d ON d.id=x.demand_id WHERE x.org_id=? AND d.org_id=? AND d.buyer_id=? AND (d.sale_project=? OR (d.sale_project='UNKNOWN' AND ?=?)) AND x.first_sent_at IS NULL AND x.send_status='QUEUED'",(a['org_id'],a['org_id'],buyer,project,partner['cooperation_project'] or 'MEMBER',project)).fetchall():self._cancel(c,a,row['id'],'PROJECT_PAUSED')
+   self.audit(c,a,'PARTNER_PROJECT_STATUS',buyer+'|'+project,{'project':project,'enabled':enabled})
+   result=dict(c.execute('SELECT * FROM partner_projects WHERE org_id=? AND partner_id=? AND project=?',(a['org_id'],buyer,project)).fetchone());result['subject_enabled']=bool(partner['enabled']);return result
 
  def _project_mode(self,c,a,buyer,project):
   row=c.execute('SELECT matching_mode FROM partner_projects WHERE org_id=? AND partner_id=? AND project=?',(a['org_id'],buyer,project)).fetchone()
   return row[0] if row else 'MANUAL'
 
  def _project_mode_block(self,c,a,d,mode,project=None):
+  if not self._demand_project_enabled(c,a,d,project):return 'PROJECT_PAUSED'
   expected=self._project_mode(c,a,d['buyer_id'],project or d['sale_project'])
   return None if expected==mode else 'PROJECT_AUTO_ONLY' if expected=='AUTO' else 'PROJECT_MANUAL_ONLY'
 
@@ -41,10 +67,21 @@ class DistributionMixin:
    if partner['role'] not in ('MEDIA','AGENCY'):raise Fault('PROJECT_MODE_INVALID','该主体不支持线索供应项目')
    current=c.execute('SELECT * FROM partner_projects WHERE org_id=? AND partner_id=? AND project=?',(a['org_id'],buyer,project)).fetchone()
    if not current or data.get('version')!=current['version']:raise Fault('VERSION_CONFLICT','匹配方式已变化，请刷新重试',409)
+   if not current['enabled'] or not partner['enabled']:raise Fault('PROJECT_PAUSED','主体或项目已停用，请先启用后调整匹配方式')
    self._set_project_mode(c,a,buyer,project,data['matching_mode'])
    if data['matching_mode']=='AUTO':
     c.execute('UPDATE settings SET auto_dispatch_enabled=1,version=version+1 WHERE org_id=?',(a['org_id'],))
    return dict(c.execute('SELECT * FROM partner_projects WHERE org_id=? AND partner_id=? AND project=?',(a['org_id'],buyer,project)).fetchone())
+
+ def _business_match_lead_rows(self,c,a):
+  """按线索去重统计基础需求候选，停用主体/项目与执行限制留给可分发指标。
+
+  仍排除过期线索、非ACTIVE及已移除需求；不复制车型和城市匹配规则。
+  """
+  demands=[dict(row) for row in c.execute("SELECT * FROM demands WHERE org_id=? AND status='ACTIVE' AND COALESCE(sync_state,'')!='REMOVED'",(a['org_id'],))]
+  context={}
+  for lead in self._lead_rows(c,a):
+   if any(self._basic_match_block(c,a,lead,demand,match_context=context) is None for demand in demands):yield lead
 
  def _matchable_lead_rows(self,c,a,buyer_ids=None):
   from domain import now
@@ -125,7 +162,7 @@ class DistributionMixin:
    partners={r['id']:r['name'] for r in c.execute('SELECT id,name FROM partners WHERE org_id=?',(a['org_id'],))}
    daily={r['demand_id']:(r['reserved'],r['valid']) for r in c.execute("SELECT demand_id,sum(quota_state='RESERVED') reserved,sum(quota_state='VALID') valid FROM deliveries WHERE org_id=? AND day=? GROUP BY demand_id",(a['org_id'],day()))}
    groups={};at=now()
-   for row in c.execute('SELECT * FROM demands WHERE org_id=? ORDER BY buyer_id,media_id,sale_project,id',(a['org_id'],)):
+   for row in c.execute("SELECT d.* FROM demands d WHERE d.org_id=? AND COALESCE(d.sync_state,'')!='REMOVED' AND "+demand_project_condition('d')+" ORDER BY buyer_id,media_id,sale_project,id",(a['org_id'],)):
     d=dict(row);key=(d['buyer_id'],d['media_id'],d['sale_project'])
     if key not in groups:groups[key]={'buyer_id':key[0],'media_id':key[1],'project':key[2],'buyer_name':partners.get(key[0],key[0]),'media_name':partners.get(key[1],key[1]),'active_count':0,'total_count':0,'valid_count':0,'reserved_count':0,'available_count':0,'target_total':0,'status_counts':{},'basis':{}}
     g=groups[key];g['total_count']+=1
@@ -136,12 +173,16 @@ class DistributionMixin:
     if effective!='ACTIVE':continue
     g['active_count']+=1;basis=d.get('quantity_basis') or 'TOTAL'
     reserved,valid=daily.get(d['id'],(0,0)) if basis=='DAILY' else (d['reserved_count'],d['valid_count'])
-    available=max(0,d['target_total']-reserved-valid)
+    if d.get('api_submit_limit') is not None:
+     from ka_demand_sources import submission_usage
+     queued,submitted=submission_usage(c,d['id']);d['target_total']=d['api_submit_limit']
+     available=max(0,d['target_total']-queued-submitted) if d['api_quota_day']==day().replace('-','') else 0
+    else:available=max(0,d['target_total']-reserved-valid)
     b=g['basis'].setdefault(basis,{'active_count':0,'target_total':0,'valid_count':0,'reserved_count':0,'available_count':0})
     for item in (g,b):
      item['target_total']+=d['target_total'];item['valid_count']+=valid;item['reserved_count']+=reserved;item['available_count']+=available
     b['active_count']+=1
-   for r in c.execute("SELECT r.buyer_id,r.media_id,p.project FROM routes r JOIN partner_projects p ON p.org_id=r.org_id AND p.partner_id=r.buyer_id WHERE r.org_id=? ORDER BY r.buyer_id,r.media_id,p.project",(a['org_id'],)):
+   for r in c.execute("SELECT r.buyer_id,r.media_id,p.project FROM routes r JOIN partner_projects p ON p.org_id=r.org_id AND p.partner_id=r.buyer_id JOIN partners owner ON owner.id=r.buyer_id AND owner.org_id=r.org_id WHERE r.org_id=? AND owner.enabled=1 AND p.enabled=1 ORDER BY r.buyer_id,r.media_id,p.project",(a['org_id'],)):
     key=(r['buyer_id'],r['media_id'],r['project'])
     if key not in groups:groups[key]={'buyer_id':key[0],'media_id':key[1],'project':key[2],'buyer_name':partners.get(key[0],key[0]),'media_name':partners.get(key[1],key[1]),'active_count':0,'total_count':0,'valid_count':0,'reserved_count':0,'available_count':0,'target_total':0,'status_counts':{},'basis':{}}
    rows=[]
@@ -159,7 +200,7 @@ class DistributionMixin:
 
  @staticmethod
  def demand_progress(d):
-  rate=min(100,max(0,d['valid_count']/d['target_total']*100))
+  rate=min(100,max(0,d['valid_count']/d['target_total']*100)) if d['target_total'] else 0
   return {'attainment_rate':round(rate,2),'urgency_stars':0 if rate>=100 else 5-min(4,int(rate//20)),
           'target_achieved':rate>=100}
 

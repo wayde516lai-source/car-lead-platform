@@ -17,7 +17,7 @@ class ProjectModesTests(unittest.TestCase):
  def tearDown(self):self.temp.cleanup()
  def config(self,project):return next(p for p in self.p.catalogs(A)['partners'] if p['id']=='MEDIA_A')['cooperation_projects'][0 if project=='MEMBER' else 1]
  def mode(self,project,mode):return self.p.project_mode_update(A,'MEDIA_A',project,{'matching_mode':mode,'version':self.config(project)['version']})
- def lead(self,n=1):return self.p.create_lead(A,{'name':'独立项目测试','phone':f'13900009{n:03}','brand_name':'宝马','model':'宝马 X5','city':'保山市','is_sold':'否'})['lead_id']
+ def lead(self,n=1):return self.p.create_lead(A,{'supplier_id':'SOURCE_A','name':'独立项目测试','phone':f'13900009{n:03}','brand_name':'宝马','model':'宝马 X5','city':'保山市','is_sold':'否'})['lead_id']
  def test_two_projects_and_separate_modes(self):
   self.assertEqual({c['project'] for c in next(p for p in self.p.catalogs(A)['partners'] if p['id']=='MEDIA_A')['cooperation_projects']},{'KA','MEMBER'})
   self.mode('KA','AUTO');self.assertEqual(self.config('KA')['matching_mode'],'AUTO');self.assertEqual(self.config('MEMBER')['matching_mode'],'MANUAL')

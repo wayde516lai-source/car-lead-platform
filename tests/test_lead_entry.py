@@ -14,7 +14,7 @@ class LeadEntry(unittest.TestCase):
         self.platform=Platform(self.root.name)
         self.platform.seed()
         self.row={
-            'name':'测试客户','phone':'13900008771','brand_name':'宝马',
+            'supplier_id':'SOURCE_A','name':'测试客户','phone':'13900008771','brand_name':'宝马',
             'series_id':'BMW_X5','city':'上海市','is_sold':'否',
         }
 
@@ -76,7 +76,7 @@ class LeadEntry(unittest.TestCase):
         writer.writerow(['未售客户','13900008772','宝马','宝马 X5','上海市','否','','',''])
         writer.writerow(['已售客户','13900008773','宝马','宝马 X5','上海市','是','MEDIA_A','KA',now()])
         writer.writerow(['缺少项目','13900008774','宝马','宝马 X5','上海市','是','MEDIA_A','',now()])
-        preview=self.platform.import_preview(ADMIN,'entry.csv',text.getvalue().encode())
+        preview=self.platform.import_preview(ADMIN,'entry.csv',text.getvalue().encode(),supplier_id='SOURCE_A')
         self.assertEqual((preview['valid'],preview['errors']),(2,1))
         result=self.platform.import_commit(ADMIN,preview['id'],'VALID_ROWS')
         self.assertEqual((result['created'],result['skipped']),(2,1))
@@ -93,7 +93,7 @@ class LeadEntry(unittest.TestCase):
         self.assertEqual(fields[fields.index('sold_media')+1],'project')
         self.assertEqual(fields[fields.index('collected_at')-1],'sold_at')
         self.assertTrue({'phone','is_sold','sold_media','sold_at','project'}.issubset(fields))
-        self.assertFalse({'supplier','channel','status','source_status'}.intersection(fields))
+        self.assertFalse({'channel','status','source_status'}.intersection(fields))
         with self.platform.tx() as c:
             c.execute('INSERT INTO lead_field_permissions VALUES(?,?)',('u_operator',canonical(['lead_no'])))
         actor={'id':'u_operator','org_id':'demo','role':'operator'}
@@ -137,6 +137,45 @@ class LeadEntry(unittest.TestCase):
         detail=self.platform.detail(ADMIN,'leads',lead_id)
         self.assertEqual((detail['gender'],detail['customer']),('女','测女士'))
 
+    def test_title_only_names_display_without_losing_original_value(self):
+        from domain import customer_label
+        for name, title, expected in [('先生','','先生'), (' 女士 ','','女士'),
+                                       ('先生','女士','先生'), ('张三','先生','张先生'),
+                                       ('欧阳测试','女士','欧阳女士'), ('李女士','','李女士'),
+                                       ('','先生','')]:
+            with self.subTest(name=name, title=title):
+                self.assertEqual(customer_label(name,title),expected)
+
+    def test_title_only_excel_names_survive_import_and_field_permissions(self):
+        from openpyxl import Workbook
+        book=Workbook()
+        self.addCleanup(book.close)
+        book.active.append(['姓名','电话','品牌','车型','城市','是否售卖'])
+        for index,name in enumerate(('先生','女士')):
+            book.active.append([name,f'1990000750{index}','宝马','宝马 X5','上海市','否'])
+        content=io.BytesIO()
+        book.save(content)
+        preview=self.platform.import_preview(ADMIN,'title-only.xlsx',content.getvalue(),supplier_id='SOURCE_A')
+        self.assertEqual((preview['valid'],preview['errors']),(2,0))
+        result=self.platform.import_commit(ADMIN,preview['id'],'ALL_VALID')
+        ids=[row['lead_id'] for row in result['items']]
+        listing=self.platform.list(ADMIN,'leads',page_size=100)
+        displayed={row['id']:row['customer'] for row in listing['items'] if row['id'] in ids}
+        for lead_id,expected in zip(ids,('先生','女士')):
+            self.assertEqual(displayed[lead_id],expected)
+            self.assertEqual(self.platform.detail(ADMIN,'leads',lead_id)['customer'],expected)
+            conn=self.platform.connect()
+            try:
+                cipher=conn.execute('SELECT name_cipher FROM leads WHERE id=?',(lead_id,)).fetchone()[0]
+                self.assertEqual(self.platform.vault.decrypt(cipher),expected)
+            finally:
+                conn.close()
+        with self.platform.tx() as conn:
+            conn.execute('INSERT INTO lead_field_permissions VALUES(?,?)',('u_operator',canonical(['lead_no'])))
+        restricted=self.platform.detail({'id':'u_operator','org_id':'demo','role':'operator'},'leads',ids[0])
+        self.assertNotIn('customer',restricted)
+        self.assertNotIn('name',restricted)
+
     def test_acquisition_channel_imports_in_both_formats(self):
         from openpyxl import Workbook
         headers=['姓名','电话','品牌','车型','城市','获客渠道','是否售卖','售卖媒体','项目','售卖时间','性别']
@@ -154,7 +193,7 @@ class LeadEntry(unittest.TestCase):
                 stream=io.BytesIO()
                 book.save(stream)
                 content=stream.getvalue()
-            preview=self.platform.import_preview(ADMIN,'channel.'+extension,content)
+            preview=self.platform.import_preview(ADMIN,'channel.'+extension,content,supplier_id='SOURCE_A')
             self.assertEqual((preview['valid'],preview['errors']),(1,0))
             result=self.platform.import_commit(ADMIN,preview['id'],'ALL_VALID')
             detail=self.platform.detail(ADMIN,'leads',result['items'][0]['lead_id'])

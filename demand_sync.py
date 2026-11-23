@@ -5,19 +5,28 @@ from datetime import timedelta
 from contextlib import nullcontext
 from domain import Fault,now,later,parse,uid
 from security import canonical,digest
+from demand_statistics import summarize_order_quantities
+from project_availability import SOURCE_PROJECT_AVAILABLE_SQL
 from qq_sheet import QQSheetError,read_qq_sheet,sheet_url
+from ka_demand_api import DemandProtocolError,read_demands
 
 class DemandSync:
- def __init__(self,platform,fetcher=read_qq_sheet):self.p=platform;self.fetcher=fetcher
+ def __init__(self,platform,fetcher=read_qq_sheet,api_fetcher=read_demands):self.p=platform;self.fetcher=fetcher;self.api_fetcher=api_fetcher
  def _source(self,c,a,id):return self.p.one(c,'demand_sync_sources',id,a)
  def _public_source(self,c,source):
   result=dict(source);result['headers']=json.loads(result['headers']);result['project_count']=c.execute('SELECT count(*) FROM demand_sync_projects WHERE source_id=? AND is_present=1',(result['id'],)).fetchone()[0]
   result['demand_counts']={r['status']:r['n'] for r in c.execute('SELECT d.status,count(*) AS n FROM demands d JOIN demand_sync_projects p ON p.id=d.external_project_id WHERE p.source_id=? AND p.is_present=1 GROUP BY d.status',(result['id'],))}
   result['running']=bool(result['running_until'] and result['running_until']>now())
+  availability=c.execute('SELECT owner.enabled AS subject_enabled,p.enabled AS project_enabled FROM partners owner LEFT JOIN partner_projects p ON p.org_id=owner.org_id AND p.partner_id=owner.id AND p.project=? WHERE owner.org_id=? AND owner.id=?',(result['sale_project'],result['org_id'],result['partner_id'])).fetchone()
+  result['subject_enabled']=bool(availability and availability['subject_enabled']);result['project_enabled']=bool(availability and availability['project_enabled']);result['available']=result['subject_enabled'] and result['project_enabled']
+  result['replaced_sources']=[dict(row) for row in c.execute('WITH RECURSIVE previous(id) AS (SELECT id FROM demand_sync_sources WHERE org_id=? AND replaced_by=? UNION SELECT s.id FROM demand_sync_sources s JOIN previous p ON s.replaced_by=p.id WHERE s.org_id=?) SELECT id,name,url FROM demand_sync_sources WHERE org_id=? AND id IN (SELECT id FROM previous)',(result['org_id'],result['id'],result['org_id'],result['org_id']))]
+  if result['source_kind']=='API_KA':
+   config=c.execute('SELECT auth_mode,token_cipher FROM ka_demand_sources WHERE source_id=? AND org_id=?',(result['id'],result['org_id'])).fetchone()
+   result['auth_mode']=config['auth_mode'] if config else 'UNCONFIRMED';result['has_token']=bool(config and config['token_cipher'])
   result.pop('run_id',None);result.pop('running_until',None);return result
  def sources(self,a):
   self.p.require(a,'read');c=self.p.connect()
-  try:return [self._public_source(c,r) for r in c.execute('SELECT * FROM demand_sync_sources WHERE org_id=? ORDER BY created_at,id',(a['org_id'],))]
+  try:return [self._public_source(c,r) for r in c.execute('SELECT * FROM demand_sync_sources WHERE org_id=? AND replaced_by IS NULL ORDER BY created_at,id',(a['org_id'],))]
   finally:c.close()
  def validate_config(self,c,a,data,old=None):
   """Validate shared subject/media/project configuration for link and file sources."""
@@ -31,7 +40,9 @@ class DemandSync:
   if not media:raise Fault('SYNC_MEDIA_REQUIRED','请选择最终媒体')
   if self.p.one(c,'partners',media,a)['role']!='MEDIA':raise Fault('SYNC_CONFIG_INVALID','最终媒体请选择合作角色为媒体的主体')
   if project not in ('KA','MEMBER'):raise Fault('SYNC_PROJECT_REQUIRED','请选择合作项目（会员或KA）')
-  if not c.execute('SELECT 1 FROM partner_projects WHERE org_id=? AND partner_id=? AND project=?',(a['org_id'],partner,project)).fetchone():raise Fault('SYNC_PROJECT_REQUIRED','该主体尚未开通所选项目，请先在线索供应中添加项目')
+  project_state=c.execute('SELECT enabled FROM partner_projects WHERE org_id=? AND partner_id=? AND project=?',(a['org_id'],partner,project)).fetchone()
+  if not project_state:raise Fault('SYNC_PROJECT_REQUIRED','该主体尚未开通所选项目，请先在线索供应中添加项目')
+  if not subject['enabled'] or not project_state['enabled']:raise Fault('PROJECT_PAUSED','该主体或合作项目已停用，请先启用后添加或调整需求')
   # A legal entity may operate both member and KA projects independently.
   if subject['role']=='AGENCY':
    links=[r[0] for r in c.execute('SELECT media_id FROM agency_final_media WHERE org_id=? AND agency_id=?',(a['org_id'],partner))]
@@ -47,13 +58,40 @@ class DemandSync:
   return interval,enabled,media,project,partner,name,route,basis
  def save(self,a,data,id=None,_connection=None,_file_id=None):
   self.p.require(a,'demand')
+  if id and 'url' in data and _connection is None:
+   conn=self.p.connect()
+   try:prior=self._source(conn,a,id)
+   finally:conn.close()
+   if prior['source_kind']=='QQ_DOC':
+    try:normalized,new_doc,new_tab=sheet_url(data['url'])
+    except QQSheetError as error:raise Fault('SYNC_URL_INVALID',str(error)) from None
+    if (new_doc,new_tab)!=(prior['doc_id'],prior['tab_id']):
+     from demand_source_replacement import replace_source_link
+     return replace_source_link(self,a,id,data)
+    data={**data,'url':normalized}
   with (nullcontext(_connection) if _connection else self.p.tx()) as c:
    old=self._source(c,a,id) if id else None
+   if old and old['replaced_by']:raise Fault('SOURCE_REPLACED','该来源已被更换，请刷新使用当前链接',409)
    if old and data.get('version')!=old['version']:raise Fault('VERSION_CONFLICT','同步配置已修改，请刷新',409)
-   if old and old['source_kind']=='EXCEL':raise Fault('FILE_SOURCE_IMMUTABLE','Excel导入来源不支持修改同步设置')
+   if old and old['running_until'] and old['running_until']>now():raise Fault('SYNC_RUNNING','该来源正在同步，请结束后修改',409)
+   if old and old['source_kind']=='EXCEL' and data.get('enabled',old['enabled'])!=0:raise Fault('FILE_SOURCE_NO_SYNC','Excel来源不能开启定时同步')
+   data=dict(data)
+   if old and any(key in data and data[key]!=old[key] for key in ('partner_id','media_id')) and 'route_id' not in data:data['route_id']=None
    interval,enabled,media,project,partner,name,route,basis=self.validate_config(c,a,data,old)
+   remapping=bool(old and (any(old[key]!=value for key,value in [('partner_id',partner),('media_id',media),('sale_project',project),('quantity_basis',basis)]) or (route is not None and route!=old['route_id'])))
+   if remapping:
+    if c.execute('SELECT 1 FROM deliveries x JOIN demands d ON d.id=x.demand_id JOIN demand_sync_projects p ON p.id=d.external_project_id WHERE d.org_id=? AND p.source_id=? AND x.first_sent_at IS NOT NULL LIMIT 1',(a['org_id'],id)).fetchone():raise Fault('SOURCE_ASSIGNMENT_LOCKED','该来源已有发送记录，不能直接更换归属；请另建来源保留历史交付',409)
+    if not route:
+     routes=c.execute('SELECT id FROM routes WHERE org_id=? AND buyer_id=? AND media_id=?',(a['org_id'],partner,media)).fetchall()
+     if len(routes)!=1:raise Fault('SYNC_ROUTE_REQUIRED','请选择匹配新主体与最终媒体的交付路由；没有路由时请先在合作与渠道新增')
+     route=routes[0]['id']
    if old:
-    if 'url' in data and data['url']!=old['url']:raise Fault('IMMUTABLE','请新增来源以切换其他文档，避免混合历史项目')
+    if 'url' in data and data['url']!=old['url']:
+     if old['source_kind']=='EXCEL':raise Fault('IMMUTABLE','Excel导入来源不可改为文档链接')
+     try:normalized,new_doc,new_tab=sheet_url(data['url'])
+     except QQSheetError as error:raise Fault('SYNC_URL_INVALID',str(error)) from None
+     if (new_doc,new_tab)!=(old['doc_id'],old['tab_id']):raise Fault('IMMUTABLE','跨文档更换须先校验并读取新链接')
+     c.execute('UPDATE demand_sync_sources SET url=? WHERE id=? AND org_id=?',(normalized,id,a['org_id']))
     c.execute('UPDATE demand_sync_sources SET name=?,interval_minutes=?,enabled=?,media_id=?,sale_project=?,next_run_at=?,version=version+1 WHERE id=?',(name,interval,enabled,media,project,later(hours=interval/60),id))
    else:
     if _file_id:url,doc,tab='excel://'+_file_id,_file_id,'IMPORT'
@@ -64,7 +102,8 @@ class DemandSync:
     id=uid('ds_');c.execute('INSERT INTO demand_sync_sources(id,org_id,name,url,doc_id,tab_id,interval_minutes,enabled,media_id,sale_project,next_run_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(id,a['org_id'],name,url,doc,tab,interval,enabled,media,project,now(),now()))
    if _file_id:c.execute("UPDATE demand_sync_sources SET source_kind='EXCEL',enabled=0 WHERE id=?",(id,))
    c.execute('UPDATE demand_sync_sources SET route_id=?,quantity_basis=?,partner_id=? WHERE id=?',(route,basis,partner,id))
-   self.p._reconcile_source(c,a,id)
+   linked=self.p._reconcile_source(c,a,id)
+   if remapping and linked['errors']:raise Fault('SOURCE_REASSIGN_FAILED','归属修改后有需求无法映射，已整体回滚；请检查重复编号或需求字段')
    self.p.audit(c,a,'DEMAND_SYNC_CONFIG',id,{'interval_minutes':interval,'enabled':enabled,'partner_id':partner,'media_id':media,'sale_project':project})
    return self._public_source(c,self._source(c,a,id))
  def approve_duplicate(self,a,source_id,key):
@@ -81,6 +120,7 @@ class DemandSync:
   self.p.require(a,'demand');run=uid('dsr_')
   with self.p.tx() as c:
    source=self._source(c,a,id)
+   if source['replaced_by']:raise Fault('SOURCE_REPLACED','该来源已被更换，请刷新使用当前链接',409)
    if source['source_kind']=='EXCEL':raise Fault('FILE_SOURCE_NO_SYNC','Excel需求请通过表格导入，不支持链接同步')
    rules={r['source_key']:r['policy'] for r in c.execute('SELECT * FROM demand_sync_duplicate_rules WHERE source_id=? AND org_id=?',(id,a['org_id']))}
    if source['running_until'] and source['running_until']>now():raise Fault('SYNC_RUNNING','该来源正在同步，请稍后刷新',409)
@@ -89,62 +129,77 @@ class DemandSync:
    c.execute('UPDATE demand_sync_sources SET run_id=?,running_until=?,last_attempt_at=?,last_error=? WHERE id=?',(run,later(hours=5/60),now(),'',id))
    c.execute('INSERT INTO demand_sync_runs(id,source_id,org_id,trigger_kind,status,started_at) VALUES(?,?,?,?,?,?)',(run,id,a['org_id'],trigger,'RUNNING',now()))
   try:
-   result=self.fetcher(source['url'],duplicate_rules=rules) if self.fetcher is read_qq_sheet else self.fetcher(source['url']);records=result['records']
+   if source['source_kind']=='API_KA':
+    if trigger not in ('manual','scheduled'):raise DemandProtocolError('KA需求拉取触发方式无效')
+    from ka_demand_sources import KaDemandSources
+    result=KaDemandSources(self).fetch(a,source)
+   else:result=self.fetcher(source['url'],duplicate_rules=rules) if self.fetcher is read_qq_sheet else self.fetcher(source['url'])
+   records=result['records']
    # Guard injected/adapter results as well as the transport parser.
-   if not records or len({r['key'] for r in records})!=len(records) or any(not r['key'] for r in records):raise QQSheetError('项目为空或需求编号重复，未更新已有数据')
+   if (not records and source['source_kind']!='API_KA') or len({r['key'] for r in records})!=len(records) or any(not r['key'] for r in records):raise QQSheetError('项目为空或需求编号重复，未更新已有数据')
    with self.p.tx() as c:
     current=self._source(c,a,id)
     if current['run_id']!=run:raise QQSheetError('同步锁已失效，未覆盖其他同步结果')
-    if result.get('notice') and result.get('tab')!=source['tab_id']:
-     resolved_url,resolved_doc,resolved_tab=sheet_url(result['url'])
-     if resolved_doc!=source['doc_id'] or result.get('requested_tab')!=source['tab_id'] or resolved_tab!=result['tab']:raise QQSheetError('解析后的文档身份不一致，未更改来源')
-     if c.execute('SELECT 1 FROM demand_sync_sources WHERE org_id=? AND doc_id=? AND tab_id=? AND id!=?',(a['org_id'],resolved_doc,resolved_tab,id)).fetchone():raise QQSheetError('当前工作表已有同步来源，请检查并合并来源配置')
-     c.execute('UPDATE demand_sync_sources SET url=?,tab_id=?,version=version+1 WHERE id=?',(resolved_url,resolved_tab,id))
-     self.p.audit(c,a,'DEMAND_SYNC_TAB_RESOLVED',id,{'old_tab':source['tab_id'],'new_tab':resolved_tab,'notice':result['notice']})
-
-    for replaced in result.get('superseded_records',[]):
-     if rules.get(replaced['key'])!='LAST_ROW_WINS':raise QQSheetError('重复需求尚未确认处理规则')
-     self._archive(c,a,id,replaced,'同一需求采用原表后行，旧行保留历史')
-    old={r['source_key']:dict(r) for r in c.execute('SELECT * FROM demand_sync_projects WHERE source_id=?',(id,))};seen=set();added=updated=unchanged=0;stamp=now()
-    for row in records:
-     key=row['key'];seen.add(key);content=digest(canonical({'values':row['values'],'raw':row['raw_values']}));prior=old.get(key)
-     if not prior:
-      added+=1;c.execute('INSERT INTO demand_sync_projects(id,source_id,org_id,source_key,row_number,values_json,raw_json,content_hash,is_present,first_seen_at,last_seen_at,changed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(uid('dp_'),id,a['org_id'],key,row['row_number'],canonical(row['values']),canonical(row['raw_values']),content,1,stamp,stamp,stamp))
-     else:
-      changed=prior['content_hash']!=content or not prior['is_present'];updated+=bool(changed);unchanged+=not changed
-      if prior['content_hash']!=content:self._archive(c,a,id,{'key':key,'row_number':prior['row_number'],'values':json.loads(prior['values_json']),'raw_values':json.loads(prior['raw_json'])},'原表更新前版本')
-      c.execute('UPDATE demand_sync_projects SET row_number=?,values_json=?,raw_json=?,content_hash=?,is_present=1,last_seen_at=?,changed_at=? WHERE id=?',(row['row_number'],canonical(row['values']),canonical(row['raw_values']),content,stamp,stamp if changed else prior['changed_at'],prior['id']))
-    missing=[r['id'] for key,r in old.items() if key not in seen and r['is_present']]
-    for project_id in missing:c.execute('UPDATE demand_sync_projects SET is_present=0,changed_at=? WHERE id=?',(stamp,project_id))
-    linked=self.p._reconcile_source(c,a,id)
-    if result.get('superseded_records'):
-     resolved=[{'key':r['key'],'old_row':r['row_number'],'current_row':next(v['row_number'] for v in records if v['key']==r['key'])} for r in result['superseded_records']]
-     self.p.audit(c,a,'DEMAND_SYNC_DUPLICATE_RESOLVED',id,{'resolutions':resolved})
-     result['notice']='；'.join(filter(None,[result.get('notice',''),'重复编号已按确认规则采用原表后行，旧版本已保留历史']))
-    c.execute('UPDATE demand_sync_sources SET title=?,headers=?,last_success_at=?,next_run_at=?,last_error=?,run_id=NULL,running_until=NULL WHERE id=?',(result['title'],canonical(result['headers']),stamp,later(hours=current['interval_minutes']/60),'',id))
-    c.execute("UPDATE demand_sync_runs SET status='SUCCESS',finished_at=?,fetched=?,added=?,updated=?,unchanged=?,removed=? WHERE id=?",(stamp,len(records),added,updated,unchanged,len(missing),run))
-    self.p.audit(c,a,'DEMAND_SYNC_SUCCESS',id,{'run_id':run,'fetched':len(records),'added':added,'updated':updated,'removed':len(missing),'demands':linked})
-    return {'id':run,'status':'SUCCESS','fetched':len(records),'added':added,'updated':updated,'unchanged':unchanged,'removed':len(missing),'demands':linked,'notice':result.get('notice','')}
+    stored=self._store_result(c,a,id,source,result,rules,run)
+    if source['source_kind']=='API_KA' and stored['demands']['errors']:raise DemandProtocolError('接口需求映射失败，整批保留原数据；请检查路由或重复编号')
+    return stored
   except Exception as e:
-   message=str(e)[:350] if isinstance(e,QQSheetError) else '同步处理失败，已有项目保持不变，请重试'
+   from ka_demand_sources import next_daily_pull
+   message=str(e)[:350] if isinstance(e,(QQSheetError,DemandProtocolError)) else '同步处理失败，已有项目保持不变，请重试'
    with self.p.tx() as c:
     current=self._source(c,a,id)
-    if current['run_id']==run:c.execute('UPDATE demand_sync_sources SET last_error=?,next_run_at=?,run_id=NULL,running_until=NULL WHERE id=?',(message,later(hours=current['interval_minutes']/60),id))
+    if current['run_id']==run:c.execute('UPDATE demand_sync_sources SET last_error=?,next_run_at=?,run_id=NULL,running_until=NULL WHERE id=?',(message,next_daily_pull() if source['source_kind']=='API_KA' else later(hours=current['interval_minutes']/60),id))
     c.execute("UPDATE demand_sync_runs SET status='FAILED',finished_at=?,error=? WHERE id=?",(now(),message,run));self.p.audit(c,a,'DEMAND_SYNC_FAILED',id,{'run_id':run,'error':message})
    return {'id':run,'status':'FAILED','error':message,'fetched':0,'added':0,'updated':0}
+ def _store_result(self,c,a,id,source,result,rules,run):
+  """写入已在事务外读取的结果；复用原表历史、配额及映射规则，不执行网络请求。"""
+  records=result['records'];current=self._source(c,a,id)
+  if result.get('notice') and result.get('tab')!=source['tab_id']:
+   resolved_url,resolved_doc,resolved_tab=sheet_url(result['url'])
+   if resolved_doc!=source['doc_id'] or result.get('requested_tab')!=source['tab_id'] or resolved_tab!=result['tab']:raise QQSheetError('解析后的文档身份不一致，未更改来源')
+   if c.execute('SELECT 1 FROM demand_sync_sources WHERE org_id=? AND doc_id=? AND tab_id=? AND id!=?',(a['org_id'],resolved_doc,resolved_tab,id)).fetchone():raise QQSheetError('当前工作表已有同步来源，请检查并合并来源配置')
+   c.execute('UPDATE demand_sync_sources SET url=?,tab_id=?,version=version+1 WHERE id=?',(resolved_url,resolved_tab,id))
+   self.p.audit(c,a,'DEMAND_SYNC_TAB_RESOLVED',id,{'old_tab':source['tab_id'],'new_tab':resolved_tab,'notice':result['notice']})
+
+  for replaced in result.get('superseded_records',[]):
+   if rules.get(replaced['key'])!='LAST_ROW_WINS':raise QQSheetError('重复需求尚未确认处理规则')
+   self._archive(c,a,id,replaced,'同一需求采用原表后行，旧行保留历史')
+  old={r['source_key']:dict(r) for r in c.execute('SELECT * FROM demand_sync_projects WHERE source_id=?',(id,))};seen=set();added=updated=unchanged=0;stamp=now()
+  for row in records:
+   key=row['key'];seen.add(key);content=digest(canonical({'values':row['values'],'raw':row['raw_values']}));prior=old.get(key)
+   if not prior:
+    added+=1;c.execute('INSERT INTO demand_sync_projects(id,source_id,org_id,source_key,row_number,values_json,raw_json,content_hash,is_present,first_seen_at,last_seen_at,changed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(uid('dp_'),id,a['org_id'],key,row['row_number'],canonical(row['values']),canonical(row['raw_values']),content,1,stamp,stamp,stamp))
+   else:
+    changed=prior['content_hash']!=content or not prior['is_present'];updated+=bool(changed);unchanged+=not changed
+    if prior['content_hash']!=content:self._archive(c,a,id,{'key':key,'row_number':prior['row_number'],'values':json.loads(prior['values_json']),'raw_values':json.loads(prior['raw_json'])},'原表更新前版本')
+    c.execute('UPDATE demand_sync_projects SET row_number=?,values_json=?,raw_json=?,content_hash=?,is_present=1,last_seen_at=?,changed_at=? WHERE id=?',(row['row_number'],canonical(row['values']),canonical(row['raw_values']),content,stamp,stamp if changed else prior['changed_at'],prior['id']))
+  missing=[r['id'] for key,r in old.items() if key not in seen and r['is_present']]
+  for project_id in missing:c.execute('UPDATE demand_sync_projects SET is_present=0,changed_at=? WHERE id=?',(stamp,project_id))
+  linked=self.p._reconcile_source(c,a,id)
+  if result.get('superseded_records'):
+   resolved=[{'key':r['key'],'old_row':r['row_number'],'current_row':next(v['row_number'] for v in records if v['key']==r['key'])} for r in result['superseded_records']]
+   self.p.audit(c,a,'DEMAND_SYNC_DUPLICATE_RESOLVED',id,{'resolutions':resolved})
+   result['notice']='；'.join(filter(None,[result.get('notice',''),'重复编号已按确认规则采用原表后行，旧版本已保留历史']))
+  from ka_demand_sources import next_daily_pull
+  c.execute('UPDATE demand_sync_sources SET title=?,headers=?,last_success_at=?,next_run_at=?,last_error=?,run_id=NULL,running_until=NULL WHERE id=?',(result['title'],canonical(result['headers']),stamp,next_daily_pull() if source['source_kind']=='API_KA' else later(hours=current['interval_minutes']/60),'',id))
+  c.execute("UPDATE demand_sync_runs SET status='SUCCESS',finished_at=?,fetched=?,added=?,updated=?,unchanged=?,removed=? WHERE id=?",(stamp,len(records),added,updated,unchanged,len(missing),run))
+  self.p.audit(c,a,'DEMAND_SYNC_SUCCESS',id,{'run_id':run,'fetched':len(records),'added':added,'updated':updated,'removed':len(missing),'demands':linked})
+  return {'id':run,'status':'SUCCESS','fetched':len(records),'added':added,'updated':updated,'unchanged':unchanged,'removed':len(missing),'demands':linked,'notice':result.get('notice','')}
  def all_projects(self,a,page=1,page_size=20,filters=None):
-  from synced_demands import split_values,city_name
+  from synced_demands import split_values,city_name,norm
   self.p.require(a,'read');filters=filters or {}
   if page_size not in (20,50,100):raise Fault('PAGE_SIZE_INVALID','每页只能选择20、50、100条')
   c=self.p.connect()
   try:
-   sources={r['id']:dict(r) for r in c.execute('SELECT * FROM demand_sync_sources WHERE org_id=? ORDER BY created_at,id',(a['org_id'],))}
+   sources={r['id']:dict(r) for r in c.execute('SELECT s.* FROM demand_sync_sources s WHERE s.org_id=? AND s.replaced_by IS NULL AND '+SOURCE_PROJECT_AVAILABLE_SQL+' ORDER BY s.created_at,s.id',(a['org_id'],))}
    headers=list(dict.fromkeys(h for source in sources.values() for h in json.loads(source['headers'])))
    rows=[]
-   for r in c.execute("SELECT p.*,s.partner_id,s.name AS source_name,d.id AS demand_id,d.status AS demand_status FROM demand_sync_projects p JOIN demand_sync_sources s ON s.id=p.source_id LEFT JOIN demands d ON d.external_project_id=p.id WHERE p.org_id=? AND s.org_id=? AND p.is_present=1 ORDER BY s.created_at,s.id,p.row_number,p.id",(a['org_id'],a['org_id'])):
-    row=dict(r);row['values']=json.loads(row.pop('values_json'));row.pop('raw_json');row.pop('content_hash');row['match_status']='UNCONFIGURED' if row['mapping_error'] or not row['demand_id'] else row['demand_status'];row['regions']=split_values(row['values'].get('城市&地区') or row['values'].get('城市'));row['models']=['全系' if v in ('全车型','全系') else v for v in split_values(row['values'].get('车型'))];rows.append(row)
+   for r in c.execute("SELECT p.*,s.partner_id,s.quantity_basis,s.source_kind,s.name AS source_name,d.id AS demand_id,d.status AS demand_status FROM demand_sync_projects p JOIN demand_sync_sources s ON s.id=p.source_id LEFT JOIN demands d ON d.external_project_id=p.id WHERE p.org_id=? AND s.org_id=? AND s.replaced_by IS NULL AND p.is_present=1 AND "+SOURCE_PROJECT_AVAILABLE_SQL+" ORDER BY s.created_at,s.id,p.row_number,p.id",(a['org_id'],a['org_id'])):
+    row=dict(r);row['values']=json.loads(row.pop('values_json'));api_values=json.loads(row.pop('raw_json')) if row['source_kind']=='API_KA' else None;row.pop('raw_json',None);row['api_vehicles']=api_values['vehicles'] if api_values else [];row.pop('content_hash');row['match_status']='UNCONFIGURED' if row['mapping_error'] or not row['demand_id'] else row['demand_status'];row['regions']=split_values(row['values'].get('城市&地区') or row['values'].get('城市'));row['models']=['全系' if v in ('全车型','全系') else v for v in split_values(row['values'].get('车型'))];rows.append(row)
    def matches(row,skip=None):
     value=row['values']
+    if row['api_vehicles'] and filters.get('brand') and filters.get('model') and skip not in ('brand','model'):
+     if not any(filters['brand'].strip().casefold() in v['brand'].casefold() and filters['model'].strip().casefold() in v['model'].casefold() for v in row['api_vehicles']):return False
     for key,selected in filters.items():
      if not selected or key==skip:continue
      if key=='partner_id' and row['partner_id']!=selected:return False
@@ -161,19 +216,26 @@ class DemandSync:
     candidates=[row for row in rows if matches(row,key)];values=set()
     for row in candidates:
      if key=='city':values.update(row['regions'])
-     elif key=='model':values.update(row['models'])
+     elif key=='model':values.update(v['model'] for v in row['api_vehicles'] if not filters.get('brand') or filters['brand'].strip().casefold() in v['brand'].casefold()) if row['api_vehicles'] else values.update(row['models'])
+     elif key=='brand' and row['api_vehicles']:values.update(v['brand'] for v in row['api_vehicles'])
      elif key=='match_status':values.add(row['match_status'])
      else:values.add(row['values'].get('品牌' if key=='brand' else '车型',''))
     labels={'ACTIVE':'执行中','CLOSED':'已结束','PAUSED':'已暂停','COMPLETED':'已完成','UNCONFIGURED':'待配置'}
     choices[key]=[{'value':v,'label':labels.get(v,v) if key=='match_status' else v} for v in sorted(values) if v]
     if key=='model':
-     for option in choices[key]:option['brands']=sorted({row['values'].get('品牌','') for row in candidates if option['value'] in row['models']})
+     for option in choices[key]:option['brands']=sorted({brand for row in candidates if option['value'] in row['models'] for brand in ([v['brand'] for v in row['api_vehicles'] if v['model']==option['value']] if row['api_vehicles'] else [row['values'].get('品牌','')])})
    filtered=[row for row in rows if matches(row)];total=len(filtered);counts={}
    for row in filtered:counts[row['match_status']]=counts.get(row['match_status'],0)+1
+   # 按筛选后的全量行统计，再分页；多城市拆分去重，全国不冒充某个具体城市。
+   wide_regions={'全国','不限','全部地区'}
+   cities={city_name(region) for row in filtered for region in row['regions'] if region not in wide_regions and city_name(region)}
+   summary={'brand_count':len({norm(brand) for row in filtered for brand in (split_values(row['values'].get('品牌','')) if row['source_kind']=='API_KA' else [row['values'].get('品牌','')]) if norm(brand)}),
+            'city_count':len(cities),'nationwide_demands':sum(any(region in wide_regions for region in row['regions']) for row in filtered),
+            'order_quantities':summarize_order_quantities((row['quantity_basis'],row['values'].get('下单量','')) for row in filtered if not (row['source_kind']=='API_KA' and row['values'].get('下单量')=='0'))}
    page=max(1,page);items=filtered[(page-1)*page_size:page*page_size]
    for item in items:item['demand']=self.p._public(c,a,'demands',self.p.one(c,'demands',item['demand_id'],a)) if item['demand_id'] else None
    scoped_sources=[s['id'] for s in sources.values() if not filters.get('partner_id') or s['partner_id']==filters['partner_id']]
-   return {'items':items,'headers':headers,'filter_options':choices,'counts':counts,'source_ids':scoped_sources,'total':total,'page':page,'page_size':page_size,'has_more':page*page_size<total}
+   return {'items':items,'summary':summary,'headers':headers,'filter_options':choices,'counts':counts,'source_ids':scoped_sources,'total':total,'page':page,'page_size':page_size,'has_more':page*page_size<total}
   finally:c.close()
  def projects(self,a,source_id,page=1,page_size=20,q='',present='1'):
   self.p.require(a,'read')
@@ -206,7 +268,7 @@ class DemandSync:
   finally:c.close()
  def tick(self):
   c=self.p.connect()
-  try:sources=[dict(r) for r in c.execute("SELECT id,org_id FROM demand_sync_sources WHERE source_kind='QQ_DOC' AND enabled=1 AND next_run_at<=? AND (running_until IS NULL OR running_until<=?)",(now(),now()))]
+  try:sources=[dict(r) for r in c.execute("SELECT id,org_id FROM demand_sync_sources WHERE source_kind IN ('QQ_DOC','API_KA') AND replaced_by IS NULL AND enabled=1 AND next_run_at<=? AND (running_until IS NULL OR running_until<=?)",(now(),now()))]
   finally:c.close()
   for source in sources:
    actor={'id':'system:demand-sync','org_id':source['org_id'],'role':'admin'}

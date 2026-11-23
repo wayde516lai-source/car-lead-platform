@@ -1,0 +1,23 @@
+{
+  "cases": [
+    {
+      "id": "SCHED01",
+      "name": "真实10秒检查线程触发到期需求同步",
+      "status": "PASS",
+      "observed_seconds": 10.28
+    },
+    {
+      "id": "SCHED02",
+      "name": "真实30秒自动扫描创建并模拟发送，未手动调用扫描",
+      "status": "PASS",
+      "observed_seconds": 30.33
+    },
+    {
+      "id": "SCHED03",
+      "name": "自动任务仅一笔，配额与账本一致",
+      "status": "PASS"
+    }
+  ],
+  "scope": "real server.run timers; no manual scan request; mocked document response; isolated database",
+  "passed": true
+}

@@ -36,3 +36,62 @@ class DashboardOverviewTests(unittest.TestCase):
    with p.tx() as c:c.execute("UPDATE demands SET status='PAUSED' WHERE org_id='demo'")
    check(0)
   finally:fixture.tearDown()
+
+ def test_order_quantities_include_finished_exclude_removed_and_keep_units(self):
+  with TemporaryDirectory() as tmp:
+   p=Platform(tmp);p.seed()
+   with p.tx() as c:
+    ids=[r[0] for r in c.execute("SELECT id FROM demands WHERE org_id='demo' ORDER BY id")]
+    c.execute("UPDATE demands SET sync_state='REMOVED' WHERE org_id='demo'")
+    c.execute("UPDATE demands SET sync_state='ACTIVE',quantity_basis='DAILY',target_total=3 WHERE id=?",(ids[0],))
+    c.execute("UPDATE demands SET sync_state='ENDED',status='CLOSED',quantity_basis='TOTAL',target_total=7 WHERE id=?",(ids[1],))
+   summary=p.reports(A)['overview']
+   self.assertEqual(summary['order_quantities'],{'daily':3,'total':7,'invalid_rows':0})
+   self.assertEqual(summary['total_demands'],2)
+   other=p.reports({'id':'u_other','org_id':'other','role':'admin'})['overview']
+   self.assertEqual(other['order_quantities'],{'daily':0,'total':0,'invalid_rows':0})
+
+
+class MatchMetricSplitTests(unittest.TestCase):
+ def setUp(self):
+  from test_synced_demands import SyncedDemandTests
+  self.fixture=SyncedDemandTests();self.fixture.setUp();self.addCleanup(self.fixture.tearDown)
+  self.p=self.fixture.p
+
+ def counts(self):
+  result=self.p.reports(A)
+  self.assertEqual(result['dispatchable'],result['matchable'])
+  self.assertEqual(result['dispatchable'],self.p.matching_leads(A)['total'])
+  return result['business_matchable'],result['dispatchable']
+
+ def test_execution_blocks_do_not_erase_business_candidates(self):
+  self.fixture.lead();self.fixture.lead(city='广州市')
+  self.assertEqual(self.counts(),(1,1))
+  with self.p.tx() as conn:conn.execute("UPDATE settings SET dispatch_enabled=0 WHERE org_id='demo'")
+  self.assertEqual(self.counts(),(1,0))
+  with self.p.tx() as conn:
+   conn.execute("UPDATE settings SET dispatch_enabled=1 WHERE org_id='demo'")
+   conn.execute('UPDATE routes SET enabled=0 WHERE id=?',(self.fixture.d['route_id'],))
+  self.assertEqual(self.counts(),(1,0))
+  with self.p.tx() as conn:
+   conn.execute('UPDATE routes SET enabled=1 WHERE id=?',(self.fixture.d['route_id'],))
+   conn.execute("UPDATE partners SET enabled=0 WHERE id='MEDIA_A'")
+  self.assertEqual(self.counts(),(1,0))
+  other=self.p.reports({'id':'u_other','org_id':'other','role':'admin'})
+  self.assertEqual((other['business_matchable'],other['dispatchable']),(0,0))
+
+ def test_sale_or_quota_block_preserves_basic_count(self):
+  lead=self.fixture.lead()
+  self.assertEqual(self.counts(),(1,1))
+  self.fixture.send(lead)
+  self.assertEqual(self.counts(),(1,0))
+
+ def test_expired_and_inactive_demand_not_counted(self):
+  self.fixture.lead()
+  self.assertEqual(self.counts(),(1,1))
+  with self.p.tx() as conn:conn.execute("UPDATE leads SET expires_at='2000-01-01T00:00:00+00:00'")
+  self.assertEqual(self.counts(),(0,0))
+  with self.p.tx() as conn:
+   conn.execute("UPDATE leads SET expires_at='2099-01-01T00:00:00+00:00'")
+   conn.execute("UPDATE demands SET status='PAUSED'")
+  self.assertEqual(self.counts(),(0,0))

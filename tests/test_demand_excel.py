@@ -109,7 +109,7 @@ class DemandExcelTests(unittest.TestCase):
 
     def test_import_enters_common_matching_pool(self):
         committed = self.importer.commit(ACTOR, self.preview()['id'])
-        lead = self.platform.create_lead(ACTOR, {'name': '虚构客户', 'phone': '19900009991',
+        lead = self.platform.create_lead(ACTOR, {'supplier_id':'SOURCE_A','name': '虚构客户', 'phone': '19900009991',
                                                'brand_name': '宝马', 'model': '宝马 X5',
                                                'city': '上海市', 'is_sold': '否'})
         demand = self.sync.projects(ACTOR, committed['source_id'])['items'][0]['demand']
@@ -140,7 +140,7 @@ class DemandExcelTests(unittest.TestCase):
         self.assertEqual(saved['created'], 2)
         demands = self.sync.projects(ACTOR, saved['source_id'])['items']
         self.assertTrue(all(row['demand']['demand_no'] == '' for row in demands))
-        lead = self.platform.create_lead(ACTOR, {'name': '虚构客户', 'phone': '19900009992',
+        lead = self.platform.create_lead(ACTOR, {'supplier_id':'SOURCE_A','name': '虚构客户', 'phone': '19900009992',
                                                'brand_name': '宝马', 'model': '宝马 X5',
                                                'city': '上海市', 'is_sold': '否'})
         demand = demands[0]['demand']
@@ -153,3 +153,30 @@ class DemandExcelTests(unittest.TestCase):
         self.assertEqual(delivery['outbound_payload']['source_project']['demand_no'], '')
         self.assertEqual(delivery['demand_snapshot_public']['demand_no'], '')
         self.assertEqual(self.importer.commit(ACTOR, preview['id']), saved)
+
+    def test_multi_models_and_cities_split_and_match_any_member(self):
+        import json
+        content = workbook_bytes([['品牌', '车型', '城市', '数量'],
+                                  ['宝马', '宝马 3系， 宝马 X5;宝马 X5｜宝马 X3',
+                                   '北京市／上海市\n上海市', 10]])
+        result = self.preview(content)
+        self.assertTrue(result['can_commit'])
+        self.assertEqual(result['preview'][0]['values']['车型'], '宝马 3系、宝马 X5、宝马 X3')
+        self.assertIn('，', result['preview'][0]['raw_values']['车型'])
+        saved = self.importer.commit(ACTOR, result['id'])
+        demand = self.sync.projects(ACTOR, saved['source_id'])['items'][0]['demand']
+        self.assertEqual(len(json.loads(demand['match_models'])), 3)
+        self.assertEqual(len(json.loads(demand['match_regions'])), 2)
+        for number, model, city, expected in [
+            ('19900009981', '宝马 X5', '上海市', True),
+            ('19900009982', '宝马 X3', '北京市', True),
+            ('19900009983', '宝马 X1', '上海市', False),
+            ('19900009984', '宝马 X5', '深圳市', False),
+        ]:
+            lead = self.platform.create_lead(ACTOR, {'supplier_id':'SOURCE_A','name': '虚构测试客户', 'phone': number,
+                                                   'brand_name': '宝马', 'model': model,
+                                                   'city': city, 'is_sold': '否'})
+            candidate = self.platform.preview(ACTOR, [lead['lead_id']], [demand['id']])['items'][0]
+            self.assertEqual(candidate['eligible'], expected, (model, city))
+        rows = self.sync.all_projects(ACTOR, filters={'model': '宝马 X5', 'city': '上海市'})
+        self.assertTrue(any(row['source_id'] == saved['source_id'] for row in rows['items']))

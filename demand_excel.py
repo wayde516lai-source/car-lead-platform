@@ -14,7 +14,7 @@ from openpyxl import load_workbook
 
 from domain import Fault, SH, later, now, uid
 from security import canonical, digest
-from synced_demands import source_time
+from synced_demands import source_time, split_values
 
 REQUIRED = ('品牌', '车型', '城市&地区', '下单量')
 ALIASES = {'品牌名称': '品牌', '车系': '车型', '车系名称': '车型', '城市': '城市&地区',
@@ -104,6 +104,8 @@ class DemandExcel:
             values = {name: cell_text(row[index]) if index < len(row) else ''
                       for index, name in enumerate(headers) if name}
             raw = dict(values)
+            for field in ('车型', '城市&地区'):
+                values[field] = '、'.join(split_values(values.get(field, '')))
             reasons = [name + '不能为空' for name in REQUIRED if not values.get(name)]
             external_no = values.get('需求编号', '')
             values['需求编号'] = external_no

@@ -13,6 +13,8 @@ from security import canonical,digest,verify_password,sign
 from media_vehicles import MediaVehicles
 from demand_sync import DemandSync
 from demand_excel import DemandExcel,template_bytes
+from bootstrap import prepare_startup
+from partner_edit import update_partner
 import yiche_transport
 import zhemanhui
 ROOT=Path(__file__).resolve().parent
@@ -72,7 +74,7 @@ class Handler(BaseHTTPRequestHandler):
      return self.send(200,{'resultCode':0,'message':'success'})
     except Fault as error:return self.send(error.status,{'resultCode':1,'message':'callback rejected'})
     except ValueError:return self.send(400,{'resultCode':1,'message':'invalid parameters'})
-   if path=='/health':return self.ok({'ready':True,'mode':'PUBLIC_TEST' if public_test else 'LOCAL_TEST','external_sending':P.yiche_live is not None,**({'seen_host':host} if os.environ.get('LEAD_DEBUG_HOST')=='1' else {})})
+   if path=='/health':return self.ok({'ready':True,'mode':'PUBLIC_TEST' if public_test else 'LOCAL_TEST','mock_enabled':P.mock_enabled,'external_sending':P.yiche_live is not None,**({'seen_host':host} if os.environ.get('LEAD_DEBUG_HOST')=='1' else {})})
    if path==yiche_transport.CALLBACK_PATH and public_test:raise Fault('LIVE_DISABLED','外部测试环境不接收真实媒体回调',403)
    if path==yiche_transport.CALLBACK_PATH:
     return self.yiche_callback(method,parsed.query)
@@ -94,6 +96,7 @@ class Handler(BaseHTTPRequestHandler):
     else:raise Fault('NOT_FOUND','页面不存在',404)
     if not file.exists():raise Fault('NOT_FOUND','文件不存在',404)
     content=file.read_bytes()
+    if file.name=='index.html':content=content.replace(b'<head>',b'<head><meta name="demo-mode" content="'+(b'true' if getattr(P,'demo_mode',False) else b'false')+b'">',1)
     if public_test and file.name=='index.html':content=content.replace(b'<head>',b'<head><meta name="public-test" content="true">',1)
     return self.send(200,content,mimetypes.guess_type(file)[0] or 'application/octet-stream')
    a=self.auth();P.require(a,'read')
@@ -126,6 +129,7 @@ class Handler(BaseHTTPRequestHandler):
    if path=='/api/v1/lead-entry-options' and method=='GET':return self.ok(P.lead_entry_options(a))
    if path=='/api/v1/demands/summary' and method=='GET':return self.ok(P.demand_summary(a,int(qs.get('page_size',20)),int(qs.get('page',1)),qs.get('q',''),qs.get('status',''),qs.get('media','')))
    if path=='/api/v1/partner-projects' and method=='POST':return self.ok(P.project_add(a,data.get('partner_id'),data.get('project')),201)
+   if path=='/api/v1/partner-projects/status' and method=='PATCH':return self.ok(P.project_status_update(a,data.get('partner_id'),data.get('project'),data))
    if path=='/api/v1/partner-projects/mode' and method=='PATCH':return self.ok(P.project_mode_update(a,data.get('partner_id'),data.get('project'),data))
    if path=='/api/v1/catalogs':return self.ok(P.catalogs(a))
    if path=='/api/v1/reports/funnel':return self.ok(P.reports(a))
@@ -149,10 +153,21 @@ class Handler(BaseHTTPRequestHandler):
     return self.ok(DemandExcel(P,DEMAND_SYNC).commit(a,data.get('id','')))
    if path=='/api/v1/demand-sync/sources':
     if method=='GET':return self.ok(DEMAND_SYNC.sources(a))
-    if method=='POST':return self.ok(DEMAND_SYNC.save(a,data),201)
+    if method=='POST':
+     if data.get('source_kind')=='API_KA':
+      from ka_demand_sources import KaDemandSources
+      return self.ok(KaDemandSources(DEMAND_SYNC).save(a,data),201)
+     return self.ok(DEMAND_SYNC.save(a,data),201)
    if path.startswith('/api/v1/demand-sync/sources/'):
     parts=path.strip('/').split('/');source_id=parts[4]
-    if len(parts)==5 and method=='PATCH':return self.ok(DEMAND_SYNC.save(a,data,source_id))
+    if len(parts)==5 and method=='PATCH':
+     conn=P.connect()
+     try:kind=DEMAND_SYNC._source(conn,a,source_id)['source_kind']
+     finally:conn.close()
+     if kind=='API_KA':
+      from ka_demand_sources import KaDemandSources
+      return self.ok(KaDemandSources(DEMAND_SYNC).save(a,data,source_id))
+     return self.ok(DEMAND_SYNC.save(a,data,source_id))
     if len(parts)==6:
      if parts[5]=='sync' and method=='POST':return self.ok(DEMAND_SYNC.run(a,source_id))
      if parts[5]=='runs' and method=='GET':return self.ok(DEMAND_SYNC.runs(a,source_id))
@@ -200,10 +215,12 @@ class Handler(BaseHTTPRequestHandler):
      if method=='GET':
       if table=='audit_log':P.require(a,'settings')
       return self.ok(P.list(a,table,int(qs.get('page_size',20)),int(qs.get('page',1)),qs.get('q',''),qs.get('status',''),qs.get('channel',''),qs.get('media',''),
-                            lead_filters={k:qs[k] for k in ('city','brand','model','supplier','from','to','sold_media','project') if k in qs}))
+                            lead_filters={k:qs[k] for k in ('city','brand','model','supplier','acquisition_channel','from','to','sold_media','project') if k in qs}))
      if table=='leads':return self.ok(P.create_lead(a,data),201)
      if table=='demands':return self.ok(P.create_demand(a,data),201)
-     if table=='imports':return self.ok(P.import_preview(a,data['filename'],base64.b64decode(data['content']),data.get('channel_id'),data.get('sheet'),data.get('column_mapping')),202)
+     if table=='imports':
+      if not data.get('supplier_id'):raise Fault('SUPPLIER_REQUIRED','请选择线索供应商')
+      return self.ok(P.import_preview(a,data['filename'],base64.b64decode(data['content']),data.get('channel_id'),data.get('sheet'),data.get('column_mapping'),data['supplier_id']),202)
      if table=='privacy_requests' and method=='POST':return self.ok(P.privacy(a,data),202)
      if table=='exports':return self.ok(P.export_request(a,data.get('purpose','')),202)
     id=rest[1]
@@ -290,6 +307,7 @@ class Handler(BaseHTTPRequestHandler):
       c.execute('INSERT INTO catalog VALUES(?,?,?,?)',(id,data['brand_id'],data['brand_name'],data['series_name']))
      P.audit(c,a,table.upper()+'_CREATE',id)
     return self.ok({'id':id},201)
+   if table=='partners' and len(rest)==2 and method=='PATCH':return self.ok(update_partner(P,a,rest[1],data))
    if table in ['routes','channels','partners'] and len(rest)==2 and method=='PATCH':
     P.require(a,'engineering' if table=='routes' else 'settings')
     with P.tx() as c:
@@ -306,6 +324,7 @@ class Handler(BaseHTTPRequestHandler):
     return self.ok({'ok':True})
    if path.startswith('/api/v1/privacy-notices/') and method=='POST':
     P.require(a,'privacy');id=path.split('/')[-1]
+    if not P.mock_enabled:raise Fault('MOCK_DISABLED','当前环境已禁用模拟通知确认',403)
     with P.tx() as c:
      n=c.execute('SELECT n.*,p.org_id FROM privacy_notices n JOIN privacy_requests p ON p.id=n.request_id WHERE n.id=? AND p.org_id=?',(id,a['org_id'])).fetchone()
      if not n:raise Fault('NOT_FOUND','通知不存在',404)
@@ -381,14 +400,19 @@ class Handler(BaseHTTPRequestHandler):
   raise Fault('FORBIDDEN','凭证无权访问该接口',403)
 def run():
  global P,VEHICLES,DEMAND_SYNC
- ap=argparse.ArgumentParser();ap.add_argument('--port',type=int,default=int(os.environ.get('PORT') or 8765));ap.add_argument('--host',default=os.environ.get('HOST') or '127.0.0.1');ap.add_argument('--data',default=str(ROOT/'data'));ap.add_argument('--no-vehicle-sync',action='store_true',help='仅恢复本地预览，不启动媒体车型库定时同步');args=ap.parse_args()
+ ap=argparse.ArgumentParser();ap.add_argument('--port',type=int,default=int(os.environ.get('PORT') or 8765));ap.add_argument('--host',default=os.environ.get('HOST') or '127.0.0.1');ap.add_argument('--data',default=str(ROOT/'data'));ap.add_argument('--no-vehicle-sync',action='store_true',help='仅恢复本地预览，不启动媒体车型库定时同步');ap.add_argument('--seed-demo',action='store_true',help='显式初始化本机演示数据，禁止外部推送环境使用');args=ap.parse_args()
  try:live=None if os.environ.get('LEAD_PUBLIC_TEST')=='1' else yiche_transport.from_environment()
  except ValueError as error:ap.error(str(error))
  if os.environ.get('LEAD_PUBLIC_TEST')=='1':
   origin=urlparse(os.environ.get('LEAD_PUBLIC_ORIGIN',''))
   allowed=os.environ.get('LEAD_ALLOWED_HOSTS','').split(',')
   if origin.scheme!='https' or ('*' not in allowed and origin.hostname not in allowed):ap.error('外部测试须配置HTTPS地址与匹配域名')
- P=Platform(args.data);P.seed();P.enforce_tombstones()
+ P=Platform(args.data)
+ try:prepare_startup(P,args.seed_demo,args.host,os.environ.get('LEAD_PUBLIC_TEST')=='1',bool(live) or os.environ.get('ZMH_ENABLE_TEST_PUSH')=='1')
+ except ValueError as error:ap.error(str(error))
+ P.mock_enabled=os.environ.get('LEAD_DISABLE_MOCK')!='1'
+ P.demo_mode=args.seed_demo
+ P.enforce_tombstones()
  P.yiche_live=live
  server=ThreadingHTTPServer((args.host,args.port),Handler)
  VEHICLES=MediaVehicles(P)

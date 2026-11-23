@@ -47,3 +47,40 @@ fieldset[data-yc-config]{border:1px solid var(--line);border-radius:8px;padding:
 .sync-manage-actions>button{min-height:34px;flex-shrink:0}
 
 .dashboard-demand-breakdown{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+.demand-value-toggle{display:inline-flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:220px;min-width:120px}.demand-value-first{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.demand-value-toggle .sub{white-space:normal;line-height:1.5}
+
+/* 总览五项指标随容器换行，避免下单量带单位时挤破卡片。 */
+#dashboard-business-summary .dashboard-overview-stats {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.order-quantity-value {
+  display: block;
+  font-size: 22px;
+  line-height: 1.5;
+  letter-spacing: normal;
+  overflow-wrap: anywhere;
+}
+.demand-list-summary {
+  flex-wrap: wrap;
+}
+.demand-list-summary > span {
+  line-height: 1.8;
+}
+
+.partner-row-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 220px;
+  max-width: 280px;
+}
+.partner-row-actions > .link {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  white-space: nowrap;
+}

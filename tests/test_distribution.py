@@ -13,7 +13,7 @@ class DistributionTests(unittest.TestCase):
   self.demands['MEDIA_C']=self.p.create_demand(A,{'demand_no':'C-TEST','route_id':'DIRECT_C','series_id':'BMW_X5','target_total':30,'daily_limit':30})
   d=self.demands['MEDIA_C'];self.p.demand_action(A,d['id'],'submit',1);self.p.demand_action({'id':'u_business','role':'business','org_id':'demo'},d['id'],'approve',2)
   with self.p.tx() as c:c.execute("UPDATE leads SET status='BLOCKED'")
-  self.l=self.p.create_lead(A,{'name':'分发测试','phone':'13900008765','brand_name':'宝马','series_id':'BMW_X5','city':'上海市','is_sold':'否'})['lead_id']
+  self.l=self.p.create_lead(A,{'supplier_id':'SOURCE_A','name':'分发测试','phone':'13900008765','brand_name':'宝马','series_id':'BMW_X5','city':'上海市','is_sold':'否'})['lead_id']
  def tearDown(self):self.tmp.cleanup()
  def rules(self,**data):
   s=self.p.catalogs(A)['settings'];return self.p.settings_update(A,dict(version=s['version'],reason='业务验收',**data))
@@ -39,7 +39,7 @@ class DistributionTests(unittest.TestCase):
   self.assertEqual(self.reason('MEDIA_B','MEMBER'),None)
   self.assertEqual(self.send('MEDIA_B','MEMBER')['created'],1)
  def test_imported_history_consumes_slot_and_ka(self):
-  old=self.p.create_lead(A,{'name':'已售','phone':'13900008766','brand_name':'宝马','series_id':'BMW_X5','city':'上海市','is_sold':'是','sale_media_id':'MEDIA_A','sale_project':'KA','sold_at':now()})
+  old=self.p.create_lead(A,{'supplier_id':'SOURCE_A','name':'已售','phone':'13900008766','brand_name':'宝马','series_id':'BMW_X5','city':'上海市','is_sold':'是','sale_media_id':'MEDIA_A','sale_project':'KA','sold_at':now()})
   self.l=old['lead_id'];self.assertEqual(self.reason('MEDIA_A'),'FINAL_MEDIA_DUPLICATE');self.assertEqual(self.reason('MEDIA_B','KA'),'KA_LIMIT_REACHED')
   self.assertEqual(self.send('MEDIA_B')['created'],1);self.assertEqual(self.reason('MEDIA_C'),'MAX_SALES_REACHED')
  def test_invalid_and_unknown_still_consume(self):
@@ -60,7 +60,7 @@ class DistributionTests(unittest.TestCase):
    c.execute('UPDATE deliveries SET first_sent_at=? WHERE lead_id=?',(later(days=-20),self.l))
    c.execute('UPDATE leads SET collected_at=? WHERE id=?',(later(days=-20),self.l))
   old=self.l
-  self.l=self.p.create_lead(A,{'name':'同品牌不同车型','phone':'13900008765','brand_name':'宝马','series_id':'BMW_3','city':'上海市','is_sold':'否'})['lead_id']
+  self.l=self.p.create_lead(A,{'supplier_id':'SOURCE_A','name':'同品牌不同车型','phone':'13900008765','brand_name':'宝马','series_id':'BMW_3','city':'上海市','is_sold':'否'})['lead_id']
   c=self.p.connect();lead=self.p.one(c,'leads',self.l,A);self.assertEqual(len(self.p._policy_records(c,A,lead)),2);c.close()
   self.rules(dedup_window_days=10)
   c=self.p.connect();self.assertEqual(len(self.p._policy_records(c,A,lead)),0);lead=self.p.one(c,'leads',old,A);self.assertEqual(len(self.p._policy_records(c,A,lead)),2);c.close()
