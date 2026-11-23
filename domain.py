@@ -141,8 +141,11 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   c=self.connect()
   try:
    out={t:[dict(x) for x in c.execute('SELECT * FROM '+t+" WHERE org_id=?"+(" AND id NOT LIKE 'INTAKE:%'" if t=='channels' else ''),(a['org_id'],))] for t in ['partners','channels','routes']}
+   from api_connection_status import connection_statuses,public_status
+   inbound,outbound=connection_statuses(c,a['org_id'])
+   for channel in out['channels']:channel.update(public_status(inbound.get(channel['id'])))
    for p in out['partners']:
-    p['cooperation_projects']=[dict(r) for r in c.execute('SELECT project,matching_mode,version,enabled FROM partner_projects WHERE org_id=? AND partner_id=? ORDER BY project DESC',(a['org_id'],p['id']))]
+    p['cooperation_projects']=[{**dict(r),**public_status(outbound.get((p['id'],r['project'])))} for r in c.execute('SELECT project,matching_mode,version,enabled FROM partner_projects WHERE org_id=? AND partner_id=? ORDER BY project DESC',(a['org_id'],p['id']))]
    for p in out['partners']:
     p['final_media_ids']=[r['media_id'] for r in c.execute('SELECT media_id FROM agency_final_media WHERE org_id=? AND agency_id=? ORDER BY media_id',(a['org_id'],p['id']))] if p['role']=='AGENCY' else ([p['id']] if p['role']=='MEDIA' else [])
    out['vehicles']=[dict(x) for x in c.execute('SELECT * FROM catalog WHERE series_id NOT IN (SELECT series_id FROM manual_vehicle_entries WHERE org_id!=?)',(a['org_id'],))];out['cities']=[{'code':'310100','name':'上海市'},{'code':'110100','name':'北京市'}];out['settings']=dict(c.execute('SELECT * FROM settings WHERE org_id=?',(a['org_id'],)).fetchone());return out
@@ -253,6 +256,9 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
     row['city_code']={'上海':'310100','上海市':'310100','北京':'110100','北京市':'110100'}.get(details['city'],'')
    if 'is_sold' in row:row=self._entry_fields(c,a,row)
    result=self._ingest(c,a,channel_id,row,payload_hash,direct=True)
+   # 仅由有效签名密钥身份记录成功接收，手动调用及测试公共密钥不算接通。
+   if a['id'].startswith('open:source_') and c.execute('SELECT 1 FROM source_api_keys WHERE org_id=? AND channel_id=? AND enabled=1 AND id=?',(a['org_id'],channel_id,a['id'][5:])).fetchone():
+    self.audit(c,a,'SOURCE_API_RECEIVED',channel_id,{'accepted':True})
    ingestion=c.execute('SELECT id FROM ingestions WHERE org_id=? AND channel_id=? AND source_record_id=?',
                        (a['org_id'],channel_id,str(row['source_record_id']).strip())).fetchone()
    lead=self.one(c,'leads',result['lead_id'],a)
