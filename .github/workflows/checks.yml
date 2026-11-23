@@ -1,0 +1,62 @@
+name: Code checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, 'codex/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Python tests and JS syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      LEAD_PUBLIC_TEST: '0'
+      LEAD_DISABLE_MOCK: '0'
+      YICHE_ENABLE_LIVE_PUSH: '0'
+      ZMH_ENABLE_TEST_PUSH: '0'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: pip
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Check tracked data boundaries
+        run: |
+          python - <<'PY'
+          import pathlib
+          import subprocess
+          tracked = subprocess.check_output(['git', 'ls-files', '-z']).decode().split('\0')
+          forbidden = [name for name in tracked if name and (
+              name.startswith('data/')
+              or pathlib.PurePosixPath(name).suffix in ('.sqlite', '.sqlite3', '.db')
+              or pathlib.PurePosixPath(name).name == '.local-key'
+          )]
+          if forbidden:
+              raise SystemExit('Business data or local keys must not be tracked in Git')
+          PY
+      - name: Run isolated Python regression
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Check JavaScript syntax
+        run: node --check static/app.js
+      - name: Check patch formatting
+        run: git diff --check HEAD^ HEAD
