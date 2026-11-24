@@ -84,3 +84,14 @@ fieldset[data-yc-config]{border:1px solid var(--line);border-radius:8px;padding:
   background: white;
   white-space: nowrap;
 }
+
+/* 新增城市库后，桌面侧栏在短视口中仍能滚动访问全部管理栏目。 */
+@media (min-width: 701px) {
+  .sidebar {
+    overflow-y: auto;
+  }
+
+  .sidebar > * {
+    flex-shrink: 0;
+  }
+}
