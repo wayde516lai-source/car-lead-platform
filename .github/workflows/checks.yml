@@ -58,5 +58,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Check JavaScript syntax
         run: node --check static/app.js
+      - name: Check demand source interactions
+        run: node tests/test_demand_source_deletion_ui.cjs
       - name: Check patch formatting
         run: git diff --check HEAD^ HEAD

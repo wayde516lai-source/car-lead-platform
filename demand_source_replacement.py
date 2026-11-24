@@ -1,10 +1,12 @@
 """校验新文档后原子替换需求来源，旧文档与交付历史保留独立身份。"""
 from domain import Fault, now, uid
 from qq_sheet import QQSheetError, read_qq_sheet, sheet_url
+from demand_source_deletion import require_current_source
 
 
 def _editable_source(sync, conn, actor, source_id, version):
     source = sync._source(conn, actor, source_id)
+    require_current_source(source)
     if source['source_kind'] != 'QQ_DOC':
         raise Fault('IMMUTABLE', 'Excel导入来源不能改为文档链接')
     if source['replaced_by']:
@@ -19,6 +21,8 @@ def _editable_source(sync, conn, actor, source_id, version):
 def _target_source(sync, conn, actor, doc_id, tab_id, current_id):
     row = conn.execute('SELECT * FROM demand_sync_sources WHERE org_id=? AND doc_id=? AND tab_id=?',
                        (actor['org_id'], doc_id, tab_id)).fetchone()
+    if row:
+        require_current_source(dict(row))
     if not row or row['id'] == current_id:
         return dict(row) if row else None
     # 允许改回本次更换链上的旧文档，但不能接管另一份正在使用的来源。

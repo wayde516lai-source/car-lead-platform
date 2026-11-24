@@ -93,11 +93,11 @@ class SyncedDemandsMixin:
   for record in c.execute('SELECT * FROM demand_sync_projects WHERE source_id=? ORDER BY row_number,id',(source_id,)).fetchall():
    p=dict(record);raw=json.loads(p['values_json']);old=c.execute('SELECT * FROM demands WHERE external_project_id=?',(p['id'],)).fetchone();old=dict(old) if old else None
    # 已移除的原表行只保留历史，不因旧字段失效继续占用当前需求或产生映射错误。
-   if not p['is_present']:
+   if not p['is_present'] or source.get('deleted_at'):
     if old:
      if old['sync_state']!='REMOVED' or old['status']!='CLOSED':
       c.execute("UPDATE demands SET sync_state='REMOVED',status='CLOSED',version=version+1 WHERE id=? AND org_id=?",(old['id'],a['org_id']))
-      for delivery in c.execute("SELECT id FROM deliveries WHERE demand_id=? AND first_sent_at IS NULL AND send_status='QUEUED'",(old['id'],)).fetchall():self._cancel(c,a,delivery['id'],'SOURCE_DEMAND_CHANGED')
+      for delivery in c.execute("SELECT id FROM deliveries WHERE demand_id=? AND first_sent_at IS NULL AND send_status='QUEUED'",(old['id'],)).fetchall():self._cancel(c,a,delivery['id'],'SOURCE_DELETED' if source.get('deleted_at') else 'SOURCE_DEMAND_CHANGED')
       self._snapshot_demand(c,a,old['id']);self.audit(c,a,'SOURCE_DEMAND_SYNC',old['id'],{'project_id':p['id'],'state':'REMOVED'})
      result['linked']+=1;result['closed']+=1
     continue
@@ -118,7 +118,7 @@ class SyncedDemandsMixin:
     existing=c.execute('SELECT brand_id FROM catalog WHERE brand_name=? LIMIT 1',(brand,)).fetchone();brand_id=existing['brand_id'] if existing else 'sync_brand:'+digest(brand)[:16]
     c.execute('INSERT OR IGNORE INTO catalog VALUES(?,?,?,?)',(series,brand_id,brand,' / '.join(models)))
     c.execute('INSERT OR IGNORE INTO manual_vehicle_entries VALUES(?,?,?)',(a['org_id'],series,int('全系' in models)))
-    conflicts=c.execute('SELECT d.id,d.buyer_id,d.sale_project,d.demand_no FROM demands d WHERE d.org_id=? AND d.media_id=? AND COALESCE(d.external_demand_no,d.demand_no)=? AND d.id!=? AND NOT EXISTS (SELECT 1 FROM demand_sync_projects prior JOIN demand_sync_sources previous ON previous.id=prior.source_id WHERE prior.id=d.external_project_id AND previous.org_id=d.org_id AND previous.replaced_by IS NOT NULL)',(a['org_id'],route['media_id'],p['source_key'],old['id'] if old else '')).fetchall()
+    conflicts=c.execute('SELECT d.id,d.buyer_id,d.sale_project,d.demand_no FROM demands d WHERE d.org_id=? AND d.media_id=? AND COALESCE(d.external_demand_no,d.demand_no)=? AND d.id!=? AND NOT EXISTS (SELECT 1 FROM demand_sync_projects prior JOIN demand_sync_sources previous ON previous.id=prior.source_id WHERE prior.id=d.external_project_id AND previous.org_id=d.org_id AND (previous.replaced_by IS NOT NULL OR previous.deleted_at IS NOT NULL))',(a['org_id'],route['media_id'],p['source_key'],old['id'] if old else '')).fetchall()
     if any(row['buyer_id']==route['buyer_id'] and row['sale_project']==source['sale_project'] for row in conflicts):raise ValueError('该主体项目的媒体需求编号已存在，未覆盖其他来源需求')
     # 不同主体/项目可收到同一媒体编号；仅隔离内部唯一键，外部编号保持原样。
     storage_no=old['demand_no'] if old else p['source_key']
@@ -145,7 +145,7 @@ class SyncedDemandsMixin:
   return result
  def reconcile_external_sources(self):
   c=self.connect()
-  try:sources=[dict(r) for r in c.execute('SELECT id,org_id FROM demand_sync_sources WHERE replaced_by IS NULL')]
+  try:sources=[dict(r) for r in c.execute('SELECT id,org_id FROM demand_sync_sources WHERE replaced_by IS NULL AND deleted_at IS NULL')]
   finally:c.close()
   for source in sources:
    actor={'id':'system:source-sync','org_id':source['org_id'],'role':'admin'}
