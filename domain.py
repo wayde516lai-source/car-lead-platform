@@ -76,7 +76,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    migrations = ((2, '002_yiche.sql'), (3, '003_media_vehicles.sql'),
                  (4, '004_media_vehicle_schedule.sql'), (5, '005_yiche_submissions.sql'),
                  (6, '006_lead_fields.sql'), (7, '007_lead_number_permission.sql'),
-                 (8, '008_yiche_code_management.sql'), (9, '009_cooperation_terms.sql'), (10, '010_source_api_details.sql'), (11, '011_lead_sales.sql'), (12, '012_manual_models_gender.sql'), (13, '013_import_acquisition_channel.sql'), (14, '014_delivery_project.sql'), (15, '015_distribution_rules.sql'), (16, '016_demand_sync.sql'), (17, '017_synced_demands.sql'), (18, '018_partner_project.sql'), (19, '019_source_partner.sql'), (20, '020_partner_projects.sql'), (21, '021_agency_final_media.sql'), (22, '022_explicit_projects.sql'), (23, '023_sync_history.sql'), (24, '024_zhemanhui.sql'), (25, '025_demand_excel.sql'), (26, '026_optional_excel_demand_no.sql'), (27, '027_replace_demand_source.sql'), (28, '028_partner_project_enabled.sql'), (29, '029_ka_demand_api.sql'))
+                 (8, '008_yiche_code_management.sql'), (9, '009_cooperation_terms.sql'), (10, '010_source_api_details.sql'), (11, '011_lead_sales.sql'), (12, '012_manual_models_gender.sql'), (13, '013_import_acquisition_channel.sql'), (14, '014_delivery_project.sql'), (15, '015_distribution_rules.sql'), (16, '016_demand_sync.sql'), (17, '017_synced_demands.sql'), (18, '018_partner_project.sql'), (19, '019_source_partner.sql'), (20, '020_partner_projects.sql'), (21, '021_agency_final_media.sql'), (22, '022_explicit_projects.sql'), (23, '023_sync_history.sql'), (24, '024_zhemanhui.sql'), (25, '025_demand_excel.sql'), (26, '026_optional_excel_demand_no.sql'), (27, '027_replace_demand_source.sql'), (28, '028_partner_project_enabled.sql'), (29, '029_ka_demand_api.sql'), (30, '030_demand_source_deletion.sql'))
    for version, filename in migrations:
     if c.execute('SELECT 1 FROM schema_version WHERE version=?', (version,)).fetchone():
      continue
@@ -643,7 +643,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   l=self._effective_lead(l)
   if l['status']!='READY':return 'LEAD_'+('INVALID' if l['status']=='QUARANTINED' else l['status'])
   if parse(l['collected_at'])<parse(now())-timedelta(hours=d['max_age_hours']):return 'DEMAND_LEAD_TOO_OLD'
-  if d['status']!='ACTIVE' or d['start_at']>now() or d['end_at']<=now():return 'DEMAND_INACTIVE'
+  if d.get('sync_state')=='REMOVED' or d['status']!='ACTIVE' or d['start_at']>now() or d['end_at']<=now():return 'DEMAND_INACTIVE'
   if d.get('external_project_id'):
    reason=self._synced_vehicle_region_block(c,a,l,d,match_context)
    if reason:return reason
@@ -665,7 +665,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   if reason:return reason
   r=self.one(c,'routes',d['route_id'],a)
   # 既有软米适配器仅确认会员协议，KA拉需求不等于已确认KA提交接口。
-  if d.get('api_submit_limit') is not None and r['adapter_version']=='zhemanhui-v1':return 'KA_DELIVERY_NOT_CONFIGURED'
+  if r['adapter_version']=='zhemanhui-v1' and (d.get('api_submit_limit') is not None or d['sale_project']!='MEMBER' or project not in (None,'UNKNOWN','MEMBER')):return 'KA_DELIVERY_NOT_CONFIGURED'
   if d.get('external_project_id'):
    buyer=self.one(c,'partners',d['receiver_id'],a)
    if not c.execute('SELECT 1 FROM partner_projects WHERE org_id=? AND partner_id=? AND project=?',(a['org_id'],d['buyer_id'],d['sale_project'])).fetchone():return 'COOPERATION_PROJECT_REQUIRED'
@@ -1395,7 +1395,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    # Attribute each demand to its purchasing entity, so agency forwarding is
    # counted once rather than again under the destination media.
    from synced_demands import norm
-   demand_rows=c.execute("SELECT d.status,COALESCE(d.api_submit_limit,d.target_total) AS target_total,d.quantity_basis,d.api_vehicles,p.role,COALESCE(NULLIF(trim(d.match_brand),''),cat.brand_name) AS brand FROM demands d JOIN partners p ON p.id=d.buyer_id AND p.org_id=d.org_id LEFT JOIN catalog cat ON cat.series_id=d.series_id WHERE d.org_id=? AND COALESCE(d.sync_state,'')!='REMOVED' AND "+demand_project_condition('d'),(a['org_id'],)).fetchall()
+   demand_rows=c.execute("SELECT d.status,CASE WHEN d.sync_state='ENDED' THEN 0 ELSE COALESCE(d.api_submit_limit,d.target_total) END AS target_total,d.quantity_basis,d.api_vehicles,p.role,COALESCE(NULLIF(trim(d.match_brand),''),cat.brand_name) AS brand FROM demands d JOIN partners p ON p.id=d.buyer_id AND p.org_id=d.org_id LEFT JOIN catalog cat ON cat.series_id=d.series_id WHERE d.org_id=? AND COALESCE(d.sync_state,'')!='REMOVED' AND "+demand_project_condition('d'),(a['org_id'],)).fetchall()
    partner_counts={r['role']:r['n'] for r in c.execute("SELECT role,count(*) AS n FROM partners WHERE org_id=? AND role IN ('MEDIA','AGENCY') GROUP BY role",(a['org_id'],))}
    out['overview']={'media_count':partner_counts.get('MEDIA',0),'agency_count':partner_counts.get('AGENCY',0),'media_demands':sum(r['role']=='MEDIA' for r in demand_rows),'agency_demands':sum(r['role']=='AGENCY' for r in demand_rows),'total_demands':len(demand_rows),'brand_count':len({norm(brand) for r in demand_rows for brand in ([x['brand'] for x in json.loads(r['api_vehicles'])] if r['api_vehicles']!='[]' else [r['brand']]) if brand and norm(brand)}),'active_demands':sum(r['status']=='ACTIVE' for r in demand_rows)}
    out['overview']['order_quantities']=summarize_order_quantities((r['quantity_basis'],r['target_total']) for r in demand_rows if r['target_total']>0)

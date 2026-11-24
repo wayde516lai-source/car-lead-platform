@@ -44,6 +44,55 @@ class SyncedDemandTests(unittest.TestCase):
   tomorrow=__import__('datetime').date.fromisoformat(day())+__import__('datetime').timedelta(days=1)
   with patch('domain.day',return_value=tomorrow.isoformat()):
    self.assertEqual(self.p.detail(A,'demands',self.d['id'])['remaining_today'],1);self.assertTrue(self.preview(self.lead())['eligible']);self.assertEqual(self.preview(winner['lead_id'])['reason'],'FINAL_MEDIA_DUPLICATE')
+
+ def test_ended_with_undetermined_date_clears_current_quantity_and_preserves_source(self):
+  self.data['records']=[record(qty='4')]
+  self.run_sync()
+  before=self.p.reports(A)['overview']['order_quantities']['daily']
+  self.data['records'][0]['values']['需求执行状态（渠道维护）']='结束'
+  self.run_sync()
+  detail=self.p.detail(A,'demands',self.d['id'])
+  self.assertEqual((detail['status'],detail['sync_state']),('CLOSED','ENDED'))
+  self.assertEqual((detail['target_total'],detail['daily_limit'],detail['remaining_today']),(0,0,0))
+  self.assertEqual(detail['source_values']['下单量'],'4')
+  self.assertFalse(self.preview(self.lead())['eligible'])
+  listing=self.sync.all_projects(A)
+  self.assertEqual(listing['items'][0]['order_quantity'],'0')
+  self.assertEqual(listing['summary']['order_quantities'],{'daily':0,'total':0,'invalid_rows':0})
+  self.assertEqual(self.sync.projects(A,self.source['id'])['items'][0]['order_quantity'],'0')
+  self.assertEqual(self.p.reports(A)['overview']['order_quantities']['daily'],before-4)
+  self.data['records'][0]['values']['需求执行状态（渠道维护）']=''
+  self.run_sync()
+  self.assertEqual(self.p.detail(A,'demands',self.d['id'])['target_total'],4)
+  self.assertTrue(self.preview(self.lead())['eligible'])
+
+ def test_zero_quantity_is_allowed_only_for_explicitly_ended_qq_rows(self):
+  for state in ('结束',' 已结束 ','停止','关闭'):
+   with self.subTest(state=state):
+    self.data['records']=[record(qty='0',state=state)]
+    result=self.run_sync()
+    self.assertEqual(result['demands']['errors'],0)
+    self.assertEqual(self.d['status'],'CLOSED')
+    self.assertEqual(self.p.detail(A,'demands',self.d['id'])['target_total'],0)
+  self.data['records']=[record(qty='0')]
+  result=self.run_sync()
+  self.assertEqual(result['demands']['errors'],1)
+  self.assertNotEqual(self.d['status'],'ACTIVE')
+
+ def test_ending_keeps_sent_delivery_snapshot_and_ledger(self):
+  delivery_id=self.send(self.lead())['items'][0]['delivery_id']
+  self.p.worker(A)
+  before=self.p.detail(A,'deliveries',delivery_id)
+  self.data['records'][0]['values']['需求执行状态（渠道维护）']='结束'
+  self.run_sync()
+  after=self.p.detail(A,'deliveries',delivery_id)
+  self.assertEqual(after['send_status'],before['send_status'])
+  self.assertEqual(after['demand_snapshot_public'],before['demand_snapshot_public'])
+  self.assertEqual(self.p.detail(A,'demands',self.d['id'])['effective_reserved'],1)
+  self.p.mock_callback(A,delivery_id,'VALID')
+  detail=self.p.detail(A,'demands',self.d['id'])
+  self.assertEqual(detail['effective_valid'],1)
+  self.assertEqual(detail['remaining_today'],0)
  def test_invalid_releases_daily_demand_quota_but_not_sale_slot(self):
   lid=self.lead();r=self.send(lid);self.p.worker(A);self.p.mock_callback(A,r['items'][0]['delivery_id'],'INVALID');self.assertTrue(self.preview(self.lead())['eligible']);self.assertEqual(self.preview(lid)['reason'],'FINAL_MEDIA_DUPLICATE')
  def test_auto_distribution_uses_same_demand_and_rule_checks(self):

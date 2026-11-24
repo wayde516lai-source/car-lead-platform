@@ -6,6 +6,8 @@ from security import digest,canonical
 class ZhemanhuiMixin:
  def _zmh_request(self,c,a,d,l,payload):
   from domain import Fault,uid,now
+  # 已确认的软米saveClue协议只绑定会员；worker也需拦截旧队列中的KA交付。
+  if d['sale_project']!='MEMBER':raise Fault('ZMH_PROJECT_MISMATCH','软米会员接口不能接收KA或未指定项目的线索')
   config=c.execute('SELECT * FROM zmh_routes WHERE org_id=? AND route_id=?',(a['org_id'],d['route_id'])).fetchone()
   if not config or not config['enabled'] or os.environ.get('ZMH_ENABLE_TEST_PUSH')!='1':raise Fault('ZMH_DISABLED','软米接口尚未开启，禁止模拟为成功')
   def mapping(kind,value):

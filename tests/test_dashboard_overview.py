@@ -37,7 +37,7 @@ class DashboardOverviewTests(unittest.TestCase):
    check(0)
   finally:fixture.tearDown()
 
- def test_order_quantities_include_finished_exclude_removed_and_keep_units(self):
+ def test_order_quantities_clear_ended_exclude_removed_and_keep_units(self):
   with TemporaryDirectory() as tmp:
    p=Platform(tmp);p.seed()
    with p.tx() as c:
@@ -46,7 +46,7 @@ class DashboardOverviewTests(unittest.TestCase):
     c.execute("UPDATE demands SET sync_state='ACTIVE',quantity_basis='DAILY',target_total=3 WHERE id=?",(ids[0],))
     c.execute("UPDATE demands SET sync_state='ENDED',status='CLOSED',quantity_basis='TOTAL',target_total=7 WHERE id=?",(ids[1],))
    summary=p.reports(A)['overview']
-   self.assertEqual(summary['order_quantities'],{'daily':3,'total':7,'invalid_rows':0})
+   self.assertEqual(summary['order_quantities'],{'daily':3,'total':0,'invalid_rows':0})
    self.assertEqual(summary['total_demands'],2)
    other=p.reports({'id':'u_other','org_id':'other','role':'admin'})['overview']
    self.assertEqual(other['order_quantities'],{'daily':0,'total':0,'invalid_rows':0})
