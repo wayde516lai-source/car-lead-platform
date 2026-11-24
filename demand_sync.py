@@ -9,6 +9,7 @@ from demand_statistics import summarize_order_quantities
 from project_availability import SOURCE_PROJECT_AVAILABLE_SQL
 from qq_sheet import QQSheetError,read_qq_sheet,sheet_url
 from ka_demand_api import DemandProtocolError,read_demands
+from synced_demands import source_order_quantity,source_execution_ended
 
 class DemandSync:
  def __init__(self,platform,fetcher=read_qq_sheet,api_fetcher=read_demands):self.p=platform;self.fetcher=fetcher;self.api_fetcher=api_fetcher
@@ -194,8 +195,9 @@ class DemandSync:
    sources={r['id']:dict(r) for r in c.execute('SELECT s.* FROM demand_sync_sources s WHERE s.org_id=? AND s.replaced_by IS NULL AND '+SOURCE_PROJECT_AVAILABLE_SQL+' ORDER BY s.created_at,s.id',(a['org_id'],))}
    headers=list(dict.fromkeys(h for source in sources.values() for h in json.loads(source['headers'])))
    rows=[]
-   for r in c.execute("SELECT p.*,s.partner_id,s.quantity_basis,s.source_kind,s.name AS source_name,d.id AS demand_id,d.status AS demand_status FROM demand_sync_projects p JOIN demand_sync_sources s ON s.id=p.source_id LEFT JOIN demands d ON d.external_project_id=p.id WHERE p.org_id=? AND s.org_id=? AND s.replaced_by IS NULL AND p.is_present=1 AND "+SOURCE_PROJECT_AVAILABLE_SQL+" ORDER BY s.created_at,s.id,p.row_number,p.id",(a['org_id'],a['org_id'])):
+   for r in c.execute("SELECT p.*,s.partner_id,s.quantity_basis,s.source_kind,s.name AS source_name,d.id AS demand_id,d.status AS demand_status,d.sync_state AS demand_sync_state FROM demand_sync_projects p JOIN demand_sync_sources s ON s.id=p.source_id LEFT JOIN demands d ON d.external_project_id=p.id WHERE p.org_id=? AND s.org_id=? AND s.replaced_by IS NULL AND p.is_present=1 AND "+SOURCE_PROJECT_AVAILABLE_SQL+" ORDER BY s.created_at,s.id,p.row_number,p.id",(a['org_id'],a['org_id'])):
     row=dict(r);row['values']=json.loads(row.pop('values_json'));api_values=json.loads(row.pop('raw_json')) if row['source_kind']=='API_KA' else None;row.pop('raw_json',None);row['api_vehicles']=api_values['vehicles'] if api_values else [];row.pop('content_hash');row['match_status']='UNCONFIGURED' if row['mapping_error'] or not row['demand_id'] else row['demand_status'];row['regions']=split_values(row['values'].get('城市&地区') or row['values'].get('城市'));row['models']=['全系' if v in ('全车型','全系') else v for v in split_values(row['values'].get('车型'))];rows.append(row)
+    row['order_quantity']=source_order_quantity(row['values'],row['demand_sync_state'])
    def matches(row,skip=None):
     value=row['values']
     if row['api_vehicles'] and filters.get('brand') and filters.get('model') and skip not in ('brand','model'):
@@ -231,7 +233,7 @@ class DemandSync:
    cities={city_name(region) for row in filtered for region in row['regions'] if region not in wide_regions and city_name(region)}
    summary={'brand_count':len({norm(brand) for row in filtered for brand in (split_values(row['values'].get('品牌','')) if row['source_kind']=='API_KA' else [row['values'].get('品牌','')]) if norm(brand)}),
             'city_count':len(cities),'nationwide_demands':sum(any(region in wide_regions for region in row['regions']) for row in filtered),
-            'order_quantities':summarize_order_quantities((row['quantity_basis'],row['values'].get('下单量','')) for row in filtered if not (row['source_kind']=='API_KA' and row['values'].get('下单量')=='0'))}
+            'order_quantities':summarize_order_quantities((row['quantity_basis'],row['order_quantity']) for row in filtered if not (row['order_quantity']=='0' and (row['source_kind']=='API_KA' or row['demand_sync_state']=='ENDED' or source_execution_ended(row['values']))))}
    page=max(1,page);items=filtered[(page-1)*page_size:page*page_size]
    for item in items:item['demand']=self.p._public(c,a,'demands',self.p.one(c,'demands',item['demand_id'],a)) if item['demand_id'] else None
    scoped_sources=[s['id'] for s in sources.values() if not filters.get('partner_id') or s['partner_id']==filters['partner_id']]
@@ -249,6 +251,7 @@ class DemandSync:
     item=dict(r);item['values']=json.loads(item.pop('values_json'));item.pop('raw_json');item.pop('content_hash')
     linked=c.execute('SELECT * FROM demands WHERE external_project_id=?',(item['id'],)).fetchone()
     item['demand']=self.p._public(c,a,'demands',dict(linked)) if linked else None
+    item['order_quantity']=source_order_quantity(item['values'],linked['sync_state'] if linked else None)
     if not q or q.casefold() in canonical(item['values']).casefold():rows.append(item)
    page=max(1,page);total=len(rows)
    return {'items':rows[(page-1)*page_size:page*page_size],'headers':json.loads(source['headers']),'total':total,'page':page,'page_size':page_size,'has_more':page*page_size<total}

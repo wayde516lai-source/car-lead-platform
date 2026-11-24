@@ -9,6 +9,19 @@ def model_name(value,brand):
  value=norm(value);brand=norm(brand)
  return value[len(brand):] if brand and value.startswith(brand) else value
 
+def source_execution_ended(values: dict) -> bool:
+    """识别原表明确结束标记，优先于待定结束时间和原下单量。"""
+    return str(values.get('需求执行状态（渠道维护）', '')).strip() in (
+        '结束', '已结束', '停止', '已停止', '关闭', '已关闭',
+    )
+
+
+def source_order_quantity(values: dict, sync_state=None) -> str:
+    """返回当前有效下单量，保留原表值供历史追溯，不修改来源原文。"""
+    if source_execution_ended(values) or sync_state == 'ENDED':
+        return '0'
+    return str(values.get('下单量', '')).strip()
+
 def source_time(value,finish=False):
  from domain import SH,now
  text=str(value or '').strip()
@@ -26,6 +39,7 @@ class SyncedDemandsMixin:
   r=c.execute("SELECT COALESCE(sum(quota_state='RESERVED'),0),COALESCE(sum(quota_state='VALID'),0) FROM deliveries WHERE demand_id=? AND day=? AND id!=?",(demand_id,day(),exclude or '')).fetchone()
   return int(r[0]),int(r[1])
  def _sync_demand_public(self,c,d):
+  """投影来源需求的当前额度，结束需求归零，原文及交付账本保持历史含义。"""
   if d.get('api_submit_limit') is not None:d['target_total']=d['api_submit_limit'];d['daily_limit']=d['api_submit_limit']
   if d.get('quantity_basis')=='DAILY':
    reserved,valid=self._daily_counts(c,d['id']);d.update(effective_reserved=reserved,effective_valid=valid,remaining_today=max(0,d['target_total']-reserved-valid))
@@ -37,6 +51,10 @@ class SyncedDemandsMixin:
   if d.get('external_project_id'):
    project=c.execute('SELECT values_json,source_id,mapping_error FROM demand_sync_projects WHERE id=?',(d['external_project_id'],)).fetchone()
    if project:d.update(source_values=json.loads(project['values_json']),source_id=project['source_id'])
+  if d.get('sync_state')=='ENDED':
+   # 旧库数量有正数约束；当前投影清零，原始目标与已交付账本保持可追溯。
+   d.update(target_total=0,daily_limit=0,remaining_today=0)
+   d.update(self.demand_progress(d))
   return d
  def _synced_vehicle_region_block(self,c,a,l,d,context=None):
   if not d['all_regions'] and city_name(l['city_code']) not in {city_name(v) for v in json.loads(d['match_regions'])}:return 'CITY_MISMATCH'
@@ -63,6 +81,7 @@ class SyncedDemandsMixin:
   if not d['all_regions'] and city_name(l['city_code']) not in {city_name(v) for v in json.loads(d['match_regions'])}:return 'CITY_MISMATCH'
   return None
  def _reconcile_source(self,c,a,source_id):
+  """按本组织来源更新执行需求及版本；结束标记停发并取消尚未发送的交付。"""
   from domain import now,uid,later,SH
   from security import canonical,digest
   source=self.one(c,'demand_sync_sources',source_id,a);route=None
@@ -87,11 +106,10 @@ class SyncedDemandsMixin:
     if source['sale_project']=='UNKNOWN':raise ValueError('请在同步设置选择KA或会员项目')
     brand=str(raw.get('品牌','')).strip();models=split_values(raw.get('车型'));regions=split_values(raw.get('城市&地区') or raw.get('城市'))
     if not brand or not models or not regions:raise ValueError('原表缺少品牌、车型或地区')
-    qty=str(raw.get('下单量','')).strip()
+    qty=str(raw.get('下单量','')).strip();ended=source_execution_ended(raw)
     api_row=json.loads(p['raw_json']) if source['source_kind']=='API_KA' else None
-    if not re.fullmatch(r'[0-9]{1,7}' if api_row else r'[1-9][0-9]{0,6}',qty):raise ValueError('下单量须为合法整数')
+    if not re.fullmatch(r'[0-9]{1,7}' if api_row or ended else r'[1-9][0-9]{0,6}',qty):raise ValueError('下单量须为合法整数')
     qty=max(1,int(qty));start=source_time(raw.get('开始时间') or raw.get('下单日期')) or (old['start_at'] if old else now());end=source_time(raw.get('结束时间（渠道编辑）') or raw.get('结束时间'),True)
-    ended=str(raw.get('需求执行状态（渠道维护）','')).strip() in ('结束','已结束','停止','已停止','关闭','已关闭')
     sync_state='REMOVED' if not p['is_present'] else 'ENDED' if ended or (end and end<=now()) else 'ACTIVE'
     status='ACTIVE' if sync_state=='ACTIVE' else 'CLOSED'
     if old and old['sync_state']=='ACTIVE' and old['status'] in ('PAUSED','CLOSED') and status=='ACTIVE' and not p['mapping_error']:status=old['status']
