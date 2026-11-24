@@ -665,7 +665,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   if reason:return reason
   r=self.one(c,'routes',d['route_id'],a)
   # 既有软米适配器仅确认会员协议，KA拉需求不等于已确认KA提交接口。
-  if d.get('api_submit_limit') is not None and r['adapter_version']=='zhemanhui-v1':return 'KA_DELIVERY_NOT_CONFIGURED'
+  if r['adapter_version']=='zhemanhui-v1' and (d.get('api_submit_limit') is not None or d['sale_project']!='MEMBER' or project not in (None,'UNKNOWN','MEMBER')):return 'KA_DELIVERY_NOT_CONFIGURED'
   if d.get('external_project_id'):
    buyer=self.one(c,'partners',d['receiver_id'],a)
    if not c.execute('SELECT 1 FROM partner_projects WHERE org_id=? AND partner_id=? AND project=?',(a['org_id'],d['buyer_id'],d['sale_project'])).fetchone():return 'COOPERATION_PROJECT_REQUIRED'

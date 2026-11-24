@@ -25,7 +25,8 @@ def connection_statuses(conn, org_id):
 
     入站必须由当前有效密钥完成真实签名接收，旧LEAD_INGEST审计可作为历史证据。
     出站须具有专用提交记录及ACKED审计或已鉴权回调，路由快照须对应当前配置。
-    无法准确归属的独立探针保留为未接通，不猜测合作主体或会员/KA归属。
+    独立探针仅在维护人员显式归属且当前路由身份仍一致时认作对应会员项目的接通证据。
+    未认领的探针保持未接通，不猜测合作主体或会员/KA归属。
     """
     inbound, outbound = {}, {}
     for row in conn.execute('''SELECT k.channel_id,e.action,e.target_id,e.detail,e.created_at
@@ -60,4 +61,21 @@ def connection_statuses(conn, org_id):
         if yiche or agency:
             key = (row['buyer_id'], row['sale_project'])
             outbound[key] = max(outbound.get(key, ''), row['created_at'])
+    for proof in conn.execute('''SELECT p.created_at,e.detail
+        FROM audit_log e JOIN zmh_submissions p ON p.org_id=e.org_id AND p.id=e.target_id
+        WHERE e.org_id=? AND e.action='ZMH_PROBE_BINDING' AND p.delivery_id IS NULL
+          AND p.send_status='ACKED' ''', (org_id,)):
+        binding = _detail(proof['detail'])
+        row = conn.execute('''SELECT r.id AS route_id,r.buyer_id,r.receiver_id,r.media_id,r.adapter_version
+            FROM routes r JOIN zmh_routes z ON z.org_id=r.org_id AND z.route_id=r.id
+            WHERE r.org_id=? AND r.id=? AND EXISTS(SELECT 1 FROM partner_projects pp
+                WHERE pp.org_id=r.org_id AND pp.partner_id=r.buyer_id AND pp.project='MEMBER')''',
+                           (org_id, binding.get('route_id'))).fetchone()
+        if not row or binding.get('project') != 'MEMBER' or row['adapter_version'] != 'zhemanhui-v1':
+            continue
+        if row['receiver_id'] != row['buyer_id'] or any(binding.get(key) != row[key] for key in (
+                'route_id', 'buyer_id', 'receiver_id', 'media_id', 'adapter_version')):
+            continue
+        key = (row['buyer_id'], 'MEMBER')
+        outbound[key] = max(outbound.get(key, ''), proof['created_at'])
     return inbound, outbound
