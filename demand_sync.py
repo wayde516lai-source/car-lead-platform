@@ -9,6 +9,7 @@ from demand_statistics import summarize_order_quantities
 from project_availability import SOURCE_PROJECT_AVAILABLE_SQL
 from qq_sheet import QQSheetError,read_qq_sheet,sheet_url
 from ka_demand_api import DemandProtocolError,read_demands
+from demand_source_deletion import require_current_source,delete_source
 
 class DemandSync:
  def __init__(self,platform,fetcher=read_qq_sheet,api_fetcher=read_demands):self.p=platform;self.fetcher=fetcher;self.api_fetcher=api_fetcher
@@ -24,9 +25,12 @@ class DemandSync:
    config=c.execute('SELECT auth_mode,token_cipher FROM ka_demand_sources WHERE source_id=? AND org_id=?',(result['id'],result['org_id'])).fetchone()
    result['auth_mode']=config['auth_mode'] if config else 'UNCONFIRMED';result['has_token']=bool(config and config['token_cipher'])
   result.pop('run_id',None);result.pop('running_until',None);return result
+ def delete(self,a,source_id,version):
+  """按当前来源版本逻辑删除整份需求，保留历史交付及原始记录。"""
+  return delete_source(self,a,source_id,version)
  def sources(self,a):
   self.p.require(a,'read');c=self.p.connect()
-  try:return [self._public_source(c,r) for r in c.execute('SELECT * FROM demand_sync_sources WHERE org_id=? AND replaced_by IS NULL ORDER BY created_at,id',(a['org_id'],))]
+  try:return [self._public_source(c,r) for r in c.execute('SELECT * FROM demand_sync_sources WHERE org_id=? AND replaced_by IS NULL AND deleted_at IS NULL ORDER BY created_at,id',(a['org_id'],))]
   finally:c.close()
  def validate_config(self,c,a,data,old=None):
   """Validate shared subject/media/project configuration for link and file sources."""
@@ -71,6 +75,7 @@ class DemandSync:
     data={**data,'url':normalized}
   with (nullcontext(_connection) if _connection else self.p.tx()) as c:
    old=self._source(c,a,id) if id else None
+   if old:require_current_source(old)
    if old and old['replaced_by']:raise Fault('SOURCE_REPLACED','该来源已被更换，请刷新使用当前链接',409)
    if old and data.get('version')!=old['version']:raise Fault('VERSION_CONFLICT','同步配置已修改，请刷新',409)
    if old and old['running_until'] and old['running_until']>now():raise Fault('SYNC_RUNNING','该来源正在同步，请结束后修改',409)
@@ -98,7 +103,9 @@ class DemandSync:
     else:
      try:url,doc,tab=sheet_url(data.get('url',''))
      except QQSheetError as e:raise Fault('SYNC_URL_INVALID',str(e)) from None
-    if c.execute('SELECT 1 FROM demand_sync_sources WHERE org_id=? AND doc_id=? AND tab_id=?',(a['org_id'],doc,tab)).fetchone():raise Fault('SYNC_DUPLICATE','该工作表已添加，请编辑已有来源',409)
+    existing=c.execute('SELECT deleted_at FROM demand_sync_sources WHERE org_id=? AND doc_id=? AND tab_id=?',(a['org_id'],doc,tab)).fetchone()
+    if existing and existing['deleted_at']:raise Fault('SOURCE_DELETED','该工作表已有已删除来源，请使用更正后的新链接或联系管理员恢复',409)
+    if existing:raise Fault('SYNC_DUPLICATE','该工作表已添加，请编辑已有来源',409)
     id=uid('ds_');c.execute('INSERT INTO demand_sync_sources(id,org_id,name,url,doc_id,tab_id,interval_minutes,enabled,media_id,sale_project,next_run_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(id,a['org_id'],name,url,doc,tab,interval,enabled,media,project,now(),now()))
    if _file_id:c.execute("UPDATE demand_sync_sources SET source_kind='EXCEL',enabled=0 WHERE id=?",(id,))
    c.execute('UPDATE demand_sync_sources SET route_id=?,quantity_basis=?,partner_id=? WHERE id=?',(route,basis,partner,id))
@@ -110,7 +117,7 @@ class DemandSync:
   self.p.require(a,'demand');key=str(key).strip()
   if not key:raise Fault('SYNC_KEY_REQUIRED','请指定需求编号')
   with self.p.tx() as c:
-   self._source(c,a,source_id)
+   require_current_source(self._source(c,a,source_id))
    c.execute("INSERT OR REPLACE INTO demand_sync_duplicate_rules VALUES(?,?,?,?,?,?)",(source_id,a['org_id'],key,'LAST_ROW_WINS',a['id'],now()))
    self.p.audit(c,a,'DEMAND_SYNC_DUPLICATE_APPROVED',source_id,{'key':key,'policy':'LAST_ROW_WINS'})
  def _archive(self,c,a,source_id,row,reason):
@@ -120,6 +127,7 @@ class DemandSync:
   self.p.require(a,'demand');run=uid('dsr_')
   with self.p.tx() as c:
    source=self._source(c,a,id)
+   require_current_source(source)
    if source['replaced_by']:raise Fault('SOURCE_REPLACED','该来源已被更换，请刷新使用当前链接',409)
    if source['source_kind']=='EXCEL':raise Fault('FILE_SOURCE_NO_SYNC','Excel需求请通过表格导入，不支持链接同步')
    rules={r['source_key']:r['policy'] for r in c.execute('SELECT * FROM demand_sync_duplicate_rules WHERE source_id=? AND org_id=?',(id,a['org_id']))}
@@ -139,21 +147,23 @@ class DemandSync:
    if (not records and source['source_kind']!='API_KA') or len({r['key'] for r in records})!=len(records) or any(not r['key'] for r in records):raise QQSheetError('项目为空或需求编号重复，未更新已有数据')
    with self.p.tx() as c:
     current=self._source(c,a,id)
+    require_current_source(current)
     if current['run_id']!=run:raise QQSheetError('同步锁已失效，未覆盖其他同步结果')
     stored=self._store_result(c,a,id,source,result,rules,run)
     if source['source_kind']=='API_KA' and stored['demands']['errors']:raise DemandProtocolError('接口需求映射失败，整批保留原数据；请检查路由或重复编号')
     return stored
   except Exception as e:
    from ka_demand_sources import next_daily_pull
-   message=str(e)[:350] if isinstance(e,(QQSheetError,DemandProtocolError)) else '同步处理失败，已有项目保持不变，请重试'
+   message=e.message if isinstance(e,Fault) and e.code=='SOURCE_DELETED' else str(e)[:350] if isinstance(e,(QQSheetError,DemandProtocolError)) else '同步处理失败，已有项目保持不变，请重试'
    with self.p.tx() as c:
     current=self._source(c,a,id)
     if current['run_id']==run:c.execute('UPDATE demand_sync_sources SET last_error=?,next_run_at=?,run_id=NULL,running_until=NULL WHERE id=?',(message,next_daily_pull() if source['source_kind']=='API_KA' else later(hours=current['interval_minutes']/60),id))
-    c.execute("UPDATE demand_sync_runs SET status='FAILED',finished_at=?,error=? WHERE id=?",(now(),message,run));self.p.audit(c,a,'DEMAND_SYNC_FAILED',id,{'run_id':run,'error':message})
+    c.execute("UPDATE demand_sync_runs SET status='FAILED',finished_at=?,error=? WHERE id=? AND status='RUNNING'",(now(),message,run));self.p.audit(c,a,'DEMAND_SYNC_FAILED',id,{'run_id':run,'error':message})
    return {'id':run,'status':'FAILED','error':message,'fetched':0,'added':0,'updated':0}
  def _store_result(self,c,a,id,source,result,rules,run):
   """写入已在事务外读取的结果；复用原表历史、配额及映射规则，不执行网络请求。"""
   records=result['records'];current=self._source(c,a,id)
+  require_current_source(current)
   if result.get('notice') and result.get('tab')!=source['tab_id']:
    resolved_url,resolved_doc,resolved_tab=sheet_url(result['url'])
    if resolved_doc!=source['doc_id'] or result.get('requested_tab')!=source['tab_id'] or resolved_tab!=result['tab']:raise QQSheetError('解析后的文档身份不一致，未更改来源')
@@ -188,13 +198,14 @@ class DemandSync:
  def all_projects(self,a,page=1,page_size=20,filters=None):
   from synced_demands import split_values,city_name,norm
   self.p.require(a,'read');filters=filters or {}
+  if filters.get('project') not in (None,'','MEMBER','KA'):raise Fault('SYNC_PROJECT_INVALID','项目筛选仅支持会员或KA')
   if page_size not in (20,50,100):raise Fault('PAGE_SIZE_INVALID','每页只能选择20、50、100条')
   c=self.p.connect()
   try:
-   sources={r['id']:dict(r) for r in c.execute('SELECT s.* FROM demand_sync_sources s WHERE s.org_id=? AND s.replaced_by IS NULL AND '+SOURCE_PROJECT_AVAILABLE_SQL+' ORDER BY s.created_at,s.id',(a['org_id'],))}
+   sources={r['id']:dict(r) for r in c.execute('SELECT s.* FROM demand_sync_sources s WHERE s.org_id=? AND s.replaced_by IS NULL AND s.deleted_at IS NULL AND '+SOURCE_PROJECT_AVAILABLE_SQL+' ORDER BY s.created_at,s.id',(a['org_id'],))}
    headers=list(dict.fromkeys(h for source in sources.values() for h in json.loads(source['headers'])))
    rows=[]
-   for r in c.execute("SELECT p.*,s.partner_id,s.quantity_basis,s.source_kind,s.name AS source_name,d.id AS demand_id,d.status AS demand_status FROM demand_sync_projects p JOIN demand_sync_sources s ON s.id=p.source_id LEFT JOIN demands d ON d.external_project_id=p.id WHERE p.org_id=? AND s.org_id=? AND s.replaced_by IS NULL AND p.is_present=1 AND "+SOURCE_PROJECT_AVAILABLE_SQL+" ORDER BY s.created_at,s.id,p.row_number,p.id",(a['org_id'],a['org_id'])):
+   for r in c.execute("SELECT p.*,s.partner_id,s.sale_project,s.quantity_basis,s.source_kind,s.name AS source_name,d.id AS demand_id,d.status AS demand_status FROM demand_sync_projects p JOIN demand_sync_sources s ON s.id=p.source_id LEFT JOIN demands d ON d.external_project_id=p.id WHERE p.org_id=? AND s.org_id=? AND s.replaced_by IS NULL AND s.deleted_at IS NULL AND p.is_present=1 AND "+SOURCE_PROJECT_AVAILABLE_SQL+" ORDER BY s.created_at,s.id,p.row_number,p.id",(a['org_id'],a['org_id'])):
     row=dict(r);row['values']=json.loads(row.pop('values_json'));api_values=json.loads(row.pop('raw_json')) if row['source_kind']=='API_KA' else None;row.pop('raw_json',None);row['api_vehicles']=api_values['vehicles'] if api_values else [];row.pop('content_hash');row['match_status']='UNCONFIGURED' if row['mapping_error'] or not row['demand_id'] else row['demand_status'];row['regions']=split_values(row['values'].get('城市&地区') or row['values'].get('城市'));row['models']=['全系' if v in ('全车型','全系') else v for v in split_values(row['values'].get('车型'))];rows.append(row)
    def matches(row,skip=None):
     value=row['values']
@@ -203,6 +214,7 @@ class DemandSync:
     for key,selected in filters.items():
      if not selected or key==skip:continue
      if key=='partner_id' and row['partner_id']!=selected:return False
+     if key=='project' and row['sale_project']!=selected:return False
      if key=='brand' and selected.strip().casefold() not in value.get('品牌','').casefold():return False
      if key=='model' and not any(selected.strip().casefold() in v.casefold() for v in row['models']):return False
      if key=='match_status' and row['match_status']!=selected:return False
@@ -224,6 +236,7 @@ class DemandSync:
     choices[key]=[{'value':v,'label':labels.get(v,v) if key=='match_status' else v} for v in sorted(values) if v]
     if key=='model':
      for option in choices[key]:option['brands']=sorted({brand for row in candidates if option['value'] in row['models'] for brand in ([v['brand'] for v in row['api_vehicles'] if v['model']==option['value']] if row['api_vehicles'] else [row['values'].get('品牌','')])})
+   choices['project']=[{'value':'MEMBER','label':'会员'},{'value':'KA','label':'KA'}]
    filtered=[row for row in rows if matches(row)];total=len(filtered);counts={}
    for row in filtered:counts[row['match_status']]=counts.get(row['match_status'],0)+1
    # 按筛选后的全量行统计，再分页；多城市拆分去重，全国不冒充某个具体城市。
@@ -234,7 +247,7 @@ class DemandSync:
             'order_quantities':summarize_order_quantities((row['quantity_basis'],row['values'].get('下单量','')) for row in filtered if not (row['source_kind']=='API_KA' and row['values'].get('下单量')=='0'))}
    page=max(1,page);items=filtered[(page-1)*page_size:page*page_size]
    for item in items:item['demand']=self.p._public(c,a,'demands',self.p.one(c,'demands',item['demand_id'],a)) if item['demand_id'] else None
-   scoped_sources=[s['id'] for s in sources.values() if not filters.get('partner_id') or s['partner_id']==filters['partner_id']]
+   scoped_sources=[s['id'] for s in sources.values() if (not filters.get('partner_id') or s['partner_id']==filters['partner_id']) and (not filters.get('project') or s['sale_project']==filters['project'])]
    return {'items':items,'summary':summary,'headers':headers,'filter_options':choices,'counts':counts,'source_ids':scoped_sources,'total':total,'page':page,'page_size':page_size,'has_more':page*page_size<total}
   finally:c.close()
  def projects(self,a,source_id,page=1,page_size=20,q='',present='1'):
@@ -268,13 +281,13 @@ class DemandSync:
   finally:c.close()
  def tick(self):
   c=self.p.connect()
-  try:sources=[dict(r) for r in c.execute("SELECT id,org_id FROM demand_sync_sources WHERE source_kind IN ('QQ_DOC','API_KA') AND replaced_by IS NULL AND enabled=1 AND next_run_at<=? AND (running_until IS NULL OR running_until<=?)",(now(),now()))]
+  try:sources=[dict(r) for r in c.execute("SELECT id,org_id FROM demand_sync_sources WHERE source_kind IN ('QQ_DOC','API_KA') AND replaced_by IS NULL AND deleted_at IS NULL AND enabled=1 AND next_run_at<=? AND (running_until IS NULL OR running_until<=?)",(now(),now()))]
   finally:c.close()
   for source in sources:
    actor={'id':'system:demand-sync','org_id':source['org_id'],'role':'admin'}
    try:self.run(actor,source['id'],'scheduled')
    except Fault as e:
-    if e.code!='SYNC_RUNNING':raise
+    if e.code not in ('SYNC_RUNNING','SOURCE_DELETED'):raise
  def schedule(self,stop):
   while not stop.wait(10):
    try:self.tick()

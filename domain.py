@@ -76,7 +76,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    migrations = ((2, '002_yiche.sql'), (3, '003_media_vehicles.sql'),
                  (4, '004_media_vehicle_schedule.sql'), (5, '005_yiche_submissions.sql'),
                  (6, '006_lead_fields.sql'), (7, '007_lead_number_permission.sql'),
-                 (8, '008_yiche_code_management.sql'), (9, '009_cooperation_terms.sql'), (10, '010_source_api_details.sql'), (11, '011_lead_sales.sql'), (12, '012_manual_models_gender.sql'), (13, '013_import_acquisition_channel.sql'), (14, '014_delivery_project.sql'), (15, '015_distribution_rules.sql'), (16, '016_demand_sync.sql'), (17, '017_synced_demands.sql'), (18, '018_partner_project.sql'), (19, '019_source_partner.sql'), (20, '020_partner_projects.sql'), (21, '021_agency_final_media.sql'), (22, '022_explicit_projects.sql'), (23, '023_sync_history.sql'), (24, '024_zhemanhui.sql'), (25, '025_demand_excel.sql'), (26, '026_optional_excel_demand_no.sql'), (27, '027_replace_demand_source.sql'), (28, '028_partner_project_enabled.sql'), (29, '029_ka_demand_api.sql'))
+                 (8, '008_yiche_code_management.sql'), (9, '009_cooperation_terms.sql'), (10, '010_source_api_details.sql'), (11, '011_lead_sales.sql'), (12, '012_manual_models_gender.sql'), (13, '013_import_acquisition_channel.sql'), (14, '014_delivery_project.sql'), (15, '015_distribution_rules.sql'), (16, '016_demand_sync.sql'), (17, '017_synced_demands.sql'), (18, '018_partner_project.sql'), (19, '019_source_partner.sql'), (20, '020_partner_projects.sql'), (21, '021_agency_final_media.sql'), (22, '022_explicit_projects.sql'), (23, '023_sync_history.sql'), (24, '024_zhemanhui.sql'), (25, '025_demand_excel.sql'), (26, '026_optional_excel_demand_no.sql'), (27, '027_replace_demand_source.sql'), (28, '028_partner_project_enabled.sql'), (29, '029_ka_demand_api.sql'), (30, '030_demand_source_deletion.sql'))
    for version, filename in migrations:
     if c.execute('SELECT 1 FROM schema_version WHERE version=?', (version,)).fetchone():
      continue
@@ -643,7 +643,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   l=self._effective_lead(l)
   if l['status']!='READY':return 'LEAD_'+('INVALID' if l['status']=='QUARANTINED' else l['status'])
   if parse(l['collected_at'])<parse(now())-timedelta(hours=d['max_age_hours']):return 'DEMAND_LEAD_TOO_OLD'
-  if d['status']!='ACTIVE' or d['start_at']>now() or d['end_at']<=now():return 'DEMAND_INACTIVE'
+  if d.get('sync_state')=='REMOVED' or d['status']!='ACTIVE' or d['start_at']>now() or d['end_at']<=now():return 'DEMAND_INACTIVE'
   if d.get('external_project_id'):
    reason=self._synced_vehicle_region_block(c,a,l,d,match_context)
    if reason:return reason

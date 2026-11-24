@@ -160,6 +160,7 @@ class Handler(BaseHTTPRequestHandler):
      return self.ok(DEMAND_SYNC.save(a,data),201)
    if path.startswith('/api/v1/demand-sync/sources/'):
     parts=path.strip('/').split('/');source_id=parts[4]
+    if len(parts)==5 and method=='DELETE':return self.ok(DEMAND_SYNC.delete(a,source_id,data.get('version')))
     if len(parts)==5 and method=='PATCH':
      conn=P.connect()
      try:kind=DEMAND_SYNC._source(conn,a,source_id)['source_kind']
@@ -172,7 +173,7 @@ class Handler(BaseHTTPRequestHandler):
      if parts[5]=='sync' and method=='POST':return self.ok(DEMAND_SYNC.run(a,source_id))
      if parts[5]=='runs' and method=='GET':return self.ok(DEMAND_SYNC.runs(a,source_id))
      if parts[5]=='projects' and method=='GET':return self.ok(DEMAND_SYNC.projects(a,source_id,int(qs.get('page',1)),int(qs.get('page_size',20)),qs.get('q',''),qs.get('present','1')))
-   if path=='/api/v1/demand-sync/projects' and method=='GET':return self.ok(DEMAND_SYNC.all_projects(a,int(qs.get('page',1)),int(qs.get('page_size',20)),{k:qs[k] for k in ('partner_id','brand','model','city','match_status') if k in qs}))
+   if path=='/api/v1/demand-sync/projects' and method=='GET':return self.ok(DEMAND_SYNC.all_projects(a,int(qs.get('page',1)),int(qs.get('page_size',20)),{k:qs[k] for k in ('partner_id','project','brand','model','city','match_status') if k in qs}))
    if path.startswith('/api/v1/demand-sync/projects/') and method=='GET':return self.ok(DEMAND_SYNC.detail(a,path.rsplit('/',1)[-1]))
    if path=='/api/v1/settings/lead-fields':
     if method=='GET':return self.ok(P.lead_fields_settings(a))
