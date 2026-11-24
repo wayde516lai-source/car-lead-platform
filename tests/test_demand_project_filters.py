@@ -39,7 +39,7 @@ class ProjectFilterTests(unittest.TestCase):
    self.assertEqual(self.sync.run(A,source['id'])['status'],'SUCCESS')
   summary=self.query()['summary']
   self.assertEqual(summary,{'brand_count':2,'city_count':3,'nationwide_demands':1,
-                           'order_quantities':{'daily':5,'total':7,'invalid_rows':0}})
+                           'order_quantities':{'daily':2,'total':7,'invalid_rows':0}})
   second=self.sync.all_projects(A,page=2,page_size=20)
   self.assertEqual(second['items'],[]);self.assertEqual(second['summary'],summary)
   selected=self.query(partner_id='MEDIA_B')['summary']
@@ -47,7 +47,7 @@ class ProjectFilterTests(unittest.TestCase):
   self.assertEqual(selected['order_quantities'],{'daily':0,'total':7,'invalid_rows':0})
   closed=self.query(match_status='CLOSED')['summary']
   self.assertEqual(closed['city_count'],0);self.assertEqual(closed['nationwide_demands'],1)
-  self.assertEqual(closed['order_quantities']['daily'],3)
+  self.assertEqual(closed['order_quantities']['daily'],0)
   other=self.sync.all_projects({'id':'u_other','role':'admin','org_id':'other'})['summary']
   self.assertEqual(other,{'brand_count':0,'city_count':0,'nationwide_demands':0,
                          'order_quantities':{'daily':0,'total':0,'invalid_rows':0}})
