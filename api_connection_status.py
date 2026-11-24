@@ -5,6 +5,8 @@
 """
 import json
 
+from route_sending import control
+
 
 def _detail(value):
     try:
@@ -58,6 +60,8 @@ def connection_statuses(conn, org_id):
                  and (row['action'] == 'YICHE_CALLBACK' or (row['action'] == 'YICHE_SEND_RESULT' and detail.get('outcome') == 'ACKED')) and row['receiver_id'] == row['media_id'])
         agency = (row['zmh_submission']
                   and (row['action'] == 'ZMH_CALLBACK' or (row['action'] == 'ZMH_SEND_RESULT' and detail.get('status') == 'ACKED')) and row['adapter_version'] == 'zhemanhui-v1')
+        if agency and snapshot.get('send_environment', 'TEST') != control(conn, org_id, snapshot['id'])['environment']:
+            agency = False
         if yiche or agency:
             key = (row['buyer_id'], row['sale_project'])
             outbound[key] = max(outbound.get(key, ''), row['created_at'])
@@ -75,6 +79,8 @@ def connection_statuses(conn, org_id):
             continue
         if row['receiver_id'] != row['buyer_id'] or any(binding.get(key) != row[key] for key in (
                 'route_id', 'buyer_id', 'receiver_id', 'media_id', 'adapter_version')):
+            continue
+        if control(conn, org_id, row['route_id'])['environment'] != 'TEST':
             continue
         key = (row['buyer_id'], 'MEMBER')
         outbound[key] = max(outbound.get(key, ''), proof['created_at'])
