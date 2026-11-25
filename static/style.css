@@ -126,3 +126,22 @@ fieldset[data-yc-config]{border:1px solid var(--line);border-radius:8px;padding:
     justify-self: start;
   }
 }
+
+
+.catalog-field-key {
+  display: block;
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+.catalog-field-note {
+  padding: 12px 20px;
+}
+
+.catalog-vehicle-table {
+  min-width: 0;
+}
+
+.catalog-vehicle-table table {
+  min-width: 2400px;
+}

@@ -16,7 +16,9 @@ from test_media_catalogs import car, page, A
 
 
 def fetcher(endpoint, token, kind, number):
-    return page([car()]) if kind == 'vehicles' else page([
+    vehicle = dict(car(), id=99, year=2026, guidePrice='13.50', displacement=None,
+                   power='150', gearbox='测试变速箱', saleStatus=0, memberBrandName='测试会员品牌')
+    return page([vehicle]) if kind == 'vehicles' else page([
         {'id': 99, 'cityCode': 2501, 'cityName': '上海', 'parentName': '上海市'}])
 
 
