@@ -1,8 +1,8 @@
 const $=s=>document.querySelector(s),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={READY:'可分发',QUARANTINED:'待核验',EXPIRED:'已过期',BLOCKED:'已停用',DELETED:'已删除',INVALID:'无效',VALID:'有效',ACTIVE:'执行中',DRAFT:'草稿',PENDING_REVIEW:'待审核',PAUSED:'已暂停',CLOSED:'已关闭',COMPLETED:'已完成',QUEUED:'待发送',ACKED:'已接收',UNKNOWN:'结果未知',CANCELED:'已取消',PENDING:'待处理',STORED:'已入库',REJECTED:'已拒绝',NONE:'暂无',PARTIAL:'部分回调',COMPLETE:'回调完整',TIMEOUT:'已超时',CONFLICT:'有冲突',PROCESSED:'已处理',STALE:'旧版本忽略',UNMATCHED:'待关联',APPROVED:'已核验',PREVIEW:'待确认',CONFIRMED:'已确认',PENDING_NOTICES:'待接收方确认',ELIGIBLE:'预估应收',UNCONFIRMED:'未确认',REVERSED:'已冲正',ACCEPTED:'已接收',MEDIA_RAW:'媒体原始回执',AGENCY_REPORTED:'乙方转述',CREATED:'新增',DUPLICATE:'重复',SKIPPED:'跳过',ERROR:'错误',MEDIA:'媒体',AGENCY:'代运营方',SOURCE:'来源方',ADS:'投放',PURCHASE:'采购',TMK:'TMK',ALL_VALID:'全量无错入库',VALID_ROWS:'仅导入合格行'};
-const reasons={ZMH_SERVER_DISABLED:'服务器软米发送总开关关闭',ZMH_ROUTE_DISABLED:'软米路由发送开关关闭',ROUTE_SEND_CHANGED:'路由发送配置变化，未发送任务已取消',KA_DELIVERY_NOT_CONFIGURED:'KA线索交付接口尚未配置，不能使用会员接口',API_QUOTA_STALE:'每日额度已过期，请重新拉取需求',PROJECT_PAUSED:'主体或合作项目已停用',MOCK_DISABLED:'当前环境已禁用模拟分发',PROJECT_AUTO_ONLY:'该主体项目设置为自动分发，请由系统自动匹配',PROJECT_MANUAL_ONLY:'该主体项目设置为手动分发',PROJECT_MODE_CHANGED:'主体项目已切换为手动分发',COOPERATION_PROJECT_REQUIRED:'采购主体未设置合作项目',PROJECT_MISMATCH:'项目与原表需求不一致',SOURCE_DEMAND_CHANGED:'原表需求变更，已取消未发送任务',SOURCE_DEMAND_INVALID:'原表需求信息不完整',YICHE_CONFIG_REQUIRED:'易车必填字段未配置',YICHE_MAPPING_MISMATCH:'线索与需求的易车编码不一致',CONSENT_MISSING:'缺少接收方授权',LEAD_INVALID:'线索待核验',LEAD_EXPIRED:'线索已过期',DEMAND_LEAD_TOO_OLD:'超过该需求允许的线索年龄',LEAD_BLOCKED:'线索已撤回或停用',LEAD_DELETED:'线索已删除',DEMAND_INACTIVE:'需求未激活或已结束',MODEL_MISMATCH:'车系不符',CITY_MISMATCH:'城市不符',SOURCE_BLOCKED:'来源停用或风控拦截',FINAL_MEDIA_DUPLICATE:'该最终媒体已上报',KA_LIMIT_REACHED:'已达到KA售卖上限',SALE_PROJECT_UNKNOWN:'历史项目待补录，暂不能分发KA',MULTIPLE_DEMANDS:'多个候选需求，等待人工指定',NO_ELIGIBLE_DEMAND:'暂无符合规则的需求',BOUND_DEMAND_BLOCKED:'指定需求暂不符合分发规则',MAX_SALES_REACHED:'已达累计售卖次数上限',QUOTA_FULL:'需求配额已占满',DAILY_QUOTA_FULL:'今日配额已用完',ROUTE_UNAVAILABLE:'路由已停用',DISPATCH_PAUSED:'全局分发已暂停',CONTRACT_EXPIRED:'合同已失效',EXCLUSIVE_CONFLICT:'独家约定不符'};
+const reasons={MEDIA_VEHICLE_REQUIRED:'请填写客户实际意向车系',MEDIA_VEHICLE_MISSING:'该媒体车型库为空，请先同步',MEDIA_CITY_MISSING:'该媒体城市库为空，请先同步',MEDIA_VEHICLE_UNMATCHED:'车型在最终媒体库中未找到',MEDIA_VEHICLE_AMBIGUOUS:'媒体车型存在同名歧义，请核对厂商',MEDIA_CITY_UNMATCHED:'城市在最终媒体库中未找到',MEDIA_CITY_AMBIGUOUS:'媒体城市重名，请核对省份',MEDIA_CATALOG_CHANGED:'媒体字典编号已变化，请重新创建分发',ZMH_DISABLED:'软米发送开关关闭',ZMH_CONFIG_REQUIRED:'软米接口必填配置不完整',KA_DELIVERY_NOT_CONFIGURED:'KA线索交付接口尚未配置，不能使用会员接口',API_QUOTA_STALE:'每日额度已过期，请重新拉取需求',PROJECT_PAUSED:'主体或合作项目已停用',MOCK_DISABLED:'当前环境已禁用模拟分发',PROJECT_AUTO_ONLY:'该主体项目设置为自动分发，请由系统自动匹配',PROJECT_MANUAL_ONLY:'该主体项目设置为手动分发',PROJECT_MODE_CHANGED:'主体项目已切换为手动分发',COOPERATION_PROJECT_REQUIRED:'采购主体未设置合作项目',PROJECT_MISMATCH:'项目与原表需求不一致',SOURCE_DEMAND_CHANGED:'原表需求变更，已取消未发送任务',SOURCE_DEMAND_INVALID:'原表需求信息不完整',YICHE_CONFIG_REQUIRED:'易车必填字段未配置',YICHE_MAPPING_MISMATCH:'线索与需求的易车编码不一致',CONSENT_MISSING:'缺少接收方授权',LEAD_INVALID:'线索待核验',LEAD_EXPIRED:'线索已过期',DEMAND_LEAD_TOO_OLD:'超过该需求允许的线索年龄',LEAD_BLOCKED:'线索已撤回或停用',LEAD_DELETED:'线索已删除',DEMAND_INACTIVE:'需求未激活或已结束',MODEL_MISMATCH:'车系不符',CITY_MISMATCH:'城市不符',SOURCE_BLOCKED:'来源停用或风控拦截',FINAL_MEDIA_DUPLICATE:'该最终媒体已上报',KA_LIMIT_REACHED:'已达到KA售卖上限',SALE_PROJECT_UNKNOWN:'历史项目待补录，暂不能分发KA',MULTIPLE_DEMANDS:'多个候选需求，等待人工指定',NO_ELIGIBLE_DEMAND:'暂无符合规则的需求',BOUND_DEMAND_BLOCKED:'指定需求暂不符合分发规则',MAX_SALES_REACHED:'已达累计售卖次数上限',QUOTA_FULL:'需求配额已占满',DAILY_QUOTA_FULL:'今日配额已用完',ROUTE_UNAVAILABLE:'路由已停用',DISPATCH_PAUSED:'全局分发已暂停',CONTRACT_EXPIRED:'合同已失效',EXCLUSIVE_CONFLICT:'独家约定不符',ZMH_SERVER_DISABLED:'服务器软米发送总开关关闭',ZMH_ROUTE_DISABLED:'软米路由发送开关关闭',ROUTE_SEND_CHANGED:'路由发送配置变化，未发送任务已取消'};
 const roles={admin:'管理员',operator:'产品运营',business:'商务审核',compliance:'合规专员',engineer:'接入工程师',finance:'财务',analyst:'只读分析'};
-const navs=[['dashboard','◫','运营总览'],['leads','◈','线索池'],['demands','▤','需求池'],['matching','⇄','匹配分发'],['deliveries','⌁','分发记录'],['imports','↥','表格导入'],['partners','◇','合作与渠道'],['mediaVehicles','▱','车型库管理'],['yicheCodes','#','Code 码管理'],['exceptions','⚑','异常中心'],['reports','▥','数据报表'],['governance','⊙','授权与治理'],['settings','⚙','系统设置'],['acceptance','✓','验收向导']];
+const navs=[['dashboard','◫','运营总览'],['leads','◈','线索池'],['demands','▤','需求池'],['matching','⇄','匹配分发'],['deliveries','⌁','分发记录'],['imports','↥','表格导入'],['partners','◇','合作与渠道'],['mediaVehicles','▱','车型库管理'],['mediaCities','⌖','城市库管理'],['yicheCodes','#','Code 码管理'],['exceptions','⚑','异常中心'],['reports','▥','数据报表'],['governance','⊙','授权与治理'],['settings','⚙','系统设置'],['acceptance','✓','验收向导']];
 let state={user:null,catalog:null,view:location.hash.slice(1)||'dashboard',page:1,size:20,q:'',status:'',channel:'',media:'',selected:new Set(),selectedDemands:new Set(),selectedBuyers:new Set(),activeDemands:[],preview:null,importFile:null,importPreview:null};
 const has=p=>state.user?.permissions?.includes(p),fmt=x=>x?new Date(x).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'—',money=x=>'¥'+((x||0)/100).toFixed(2),pct=(a,b)=>b?Math.round(a/b*100)+'%':'0%';
 const badge=x=>`<span class="badge ${['READY','VALID','ACTIVE','ACKED','STORED','APPROVED','PROCESSED','COMPLETED','COMPLETE','ACCEPTED','CONFIRMED','CREATED'].includes(x)?'green':['INVALID','REJECTED','ERROR','CONFLICT','BLOCKED','DELETED'].includes(x)?'red':['PENDING','QUEUED','UNKNOWN','QUARANTINED','PAUSED','TIMEOUT','PENDING_REVIEW','PARTIAL','UNMATCHED'].includes(x)?'gold':'blue'}">${esc(labels[x]||x||'—')}</span>`;
@@ -47,40 +47,12 @@ const vehicleColumns=[
 ];
 const vehicleSyncLabels={RUNNING:'同步中',SUCCESS:'成功',FAILED:'失败'};
 let vehicleLibrary={id:'',q:'',page:1};
-async function mediaVehicles(){
- const libraries=await api('media-vehicles');
- const selected=libraries.find(x=>x.id===vehicleLibrary.id)||libraries[0];
- const intro=heading('MEDIA VEHICLES / 车型库','车型库管理','各媒体独立存储车款。已启用的接口每天北京时间 00:00 同步。', '<button data-action="refresh">刷新状态</button>');
- if(!selected)return intro+'<section class="card"><p class="empty">请先添加媒体</p></section>';
- vehicleLibrary.id=selected.id;
- const data=await api('media-vehicles/'+encodeURIComponent(selected.id)+'?page='+vehicleLibrary.page+'&q='+encodeURIComponent(vehicleLibrary.q));
- const latest=selected.runs[0];
- const status=selected.adapter?(selected.enabled?(vehicleSyncLabels[latest?.state]||'等待同步'):'已暂停'):(selected.id==='MEDIA_A'?'待配置':'待接入');
- const mayConfigure=has('settings')&&(selected.adapter||selected.id==='MEDIA_A');
- const actions=mayConfigure?`<button data-action="vehicle-config">同步配置</button>${selected.enabled?`<button class="primary" data-action="vehicle-sync" ${latest?.state==='RUNNING'?'disabled':''}>立即同步</button>`:''}`:'';
- return intro+`<section class="card">
-   <div class="toolbar"><form class="filter-row" id="vehicle-search-form">
-    <select name="media" id="vehicle-media" aria-label="媒体">${libraries.map(x=>opt(x.id,x.name,x.id===selected.id?x.id:'')).join('')}</select>
-    <input name="q" aria-label="搜索车款" placeholder="品牌、车系、厂商、车款或车款 ID" value="${esc(vehicleLibrary.q)}">
-    <button type="submit">搜索</button>
-   </form><div class="actions">${actions}</div></div>
-   <div class="toolbar"><span>${badge(status)} · 库存 ${selected.total} 款</span><span class="muted smalltext">最近成功更新 ${esc(fmt(selected.last_success))}${selected.start_on&&!selected.last_success?' · 首次定时 '+esc(selected.start_on)+' 00:00':''}</span></div>
-   ${latest?.error?`<div class="callout warning">${esc(latest.error)}</div>`:''}
-   <p class="smalltext muted vehicle-columns-note">按原表顺序显示 16 个字段，可横向滚动查看。</p>
-   ${table(vehicleColumns,data.items.map(row=>vehicleColumns.map(key=>esc(row[key]))),
-    selected.adapter?'暂无符合条件的车款':selected.id==='MEDIA_A'?'配置易车 CID 和签名密钥后开始同步':'等待此媒体提供车型库接口')}
-   <div class="pagination"><span>搜索结果 ${data.total} 款</span><div class="pager">
-    <button data-action="vehicle-prev" ${vehicleLibrary.page<=1?'disabled':''}>‹</button>
-    <span>第 ${vehicleLibrary.page} / ${Math.max(1,Math.ceil(data.total/30))} 页</span>
-    <button data-action="vehicle-next" ${vehicleLibrary.page*30>=data.total?'disabled':''}>›</button>
-   </div></div></section>
-   <section class="card"><div class="card-head"><h2>最近同步记录</h2></div>
-   ${table(['同步日期','触发方式','开始时间','状态','页数','入库车款','详情'],selected.runs.map(x=>[
-    esc(x.sync_day),({auto:'定时同步',manual:'手动同步',import:'表格导入'})[x.trigger_kind]||'—',esc(fmt(x.started_at)),badge(vehicleSyncLabels[x.state]),x.trigger_kind==='import'?'—':x.pages,x.item_count,esc(x.error||'—')
-   ]),'暂无同步记录')}</section>`;
-}
+let mediaCatalogUI;
+function catalogsUI(){return mediaCatalogUI ||= createMediaCatalogUI({api,esc,table,opt,badge,fmt,has,modal,render,feedback:demandExcelFeedback})}
+async function mediaVehicles(){return catalogsUI().view('vehicles')}
+async function mediaCities(){return catalogsUI().view('cities')}
 let renderSequence=0,renderedView=null;
-async function render(){const sequence=++renderSequence,view=state.view;if(!$('#main')||renderedView!==view){shell();renderedView=view}$('#main').setAttribute('aria-busy','true');try{const views={dashboard,leads,demands,matching,deliveries,imports,partners,mediaVehicles,yicheCodes,exceptions,reports,governance,settings,acceptance};const html=await (views[view]||dashboard)();if(sequence!==renderSequence)return;$('#main').innerHTML=html+`<footer class="page-footer"><span>车联汇 · 本地业务测试系统</span><span>线索分发为本地模拟　／　车型库按媒体同步</span></footer>`;mountLeadBrandPicker();mountDemandFilterPickers();$('#main').removeAttribute('aria-busy')}catch(e){if(sequence!==renderSequence)return;$('#main').removeAttribute('aria-busy');$('#main').innerHTML=`<div class="callout error">${esc(e.message)}</div><button data-action="refresh">重新加载</button>`}}
+async function render(){const sequence=++renderSequence,view=state.view;if(!$('#main')||renderedView!==view){shell();renderedView=view}$('#main').setAttribute('aria-busy','true');try{const views={dashboard,leads,demands,matching,deliveries,imports,partners,mediaVehicles,mediaCities,yicheCodes,exceptions,reports,governance,settings,acceptance};const html=await (views[view]||dashboard)();if(sequence!==renderSequence)return;$('#main').innerHTML=html+`<footer class="page-footer"><span>车联汇 · 本地业务测试系统</span><span>线索分发为本地模拟　／　车型库按媒体同步</span></footer>`;mountLeadBrandPicker();mountDemandFilterPickers();$('#main').removeAttribute('aria-busy')}catch(e){if(sequence!==renderSequence)return;$('#main').removeAttribute('aria-busy');$('#main').innerHTML=`<div class="callout error">${esc(e.message)}</div><button data-action="refresh">重新加载</button>`}}
 async function dashboard(){const r=await api('reports/funnel'),d=await api('demands?page_size=20'),l=await api('leads?page_size=20');const m=r.metrics,o=r.overview;return heading('OVERVIEW / 运营总览','每一条线索，都有清晰的去向。','统一查看线索库存、需求进度与交付结果。',`<button data-action="refresh">↻ 刷新数据</button><button class="primary" data-nav="matching">开始匹配分发 ↗</button>`)+`<section class="card" id="dashboard-business-summary"><div class="card-head"><div><h2>合作与需求概况</h2><span class="sub">需求按采购主体归属统计，乙方转发不重复计入媒体需求。</span></div><button class="link tiny" data-nav="demands">查看需求 →</button></div><div class="card-body"><div class="stats dashboard-overview-stats">${stat('媒体总数',o.media_count,'合作角色为媒体的主体数','◇')}${stat('乙方总数',o.agency_count,'合作角色为乙方的主体数','◇')}${stat('需求总数',o.total_demands,`其中执行中 ${o.active_demands} 项`,'▤')}${stat('需求品牌数',o.brand_count,'按当前展示需求中的品牌去重统计','▱')}${stat('下单量级',`<span class="order-quantity-value">${esc(orderQuantityText(o.order_quantities))}</span>`,'按下单目标汇总，每日与项目总量分列','▤')}</div><div class="stats dashboard-demand-breakdown">${stat('媒体需求数',o.media_demands,'采购主体为媒体的需求项数','▤')}${stat('乙方需求数',o.agency_demands,'采购主体为乙方的需求项数','▤')}</div><p class="smalltext muted">主体数量包含已停用主体；需求仅展示已启用的主体项目，含已结束等状态，不含原表已移除的需求。会员与 KA 项目中的每条需求分别计数，品牌跨项目去重。</p></div></section><div class="stats dashboard-overview-stats">${stat('累计入库线索',r.leads,'含已过期、已停用及已删除记录，每条线索计一次','◈')}${stat('可匹配条数',r.business_matchable??'待更新','满足需求时间、品牌、车型和城市条件，每条线索计一次','✓')}${stat('可分发条数',r.dispatchable??r.matchable,'进一步通过开关、合作状态、路由、售卖限制及额度检查','⇄')}${stat('累计创建分发',r.deliveries,'含排队、失败和取消记录；重试不重复计数','⇄')}${stat('媒体判定有效',m.valid,`本地模拟结果 · 待判定 ${m.pending} 条 · 已判定有效率 ${pct(m.valid,m.valid+m.invalid)}`,'↗')}</div><div class="cols"><section class="card"><div class="card-head"><div><h2>交付转化概览</h2><span class="sub">按首次发送队列统计 · 截至当前结果</span></div><span class="badge green">实时台账</span></div><div class="card-body"><div class="chart">${[['首次发送',m.sent],['接收成功',m.acked],['媒体入库',m.stored],['最终有效',m.valid]].map(([n,v])=>`<div class="bar-group"><strong>${v}</strong><div class="bar" style="height:${Math.max(4,v/Math.max(1,m.sent)*125)}px"></div><span>${n}</span></div>`).join('')}</div><div class="chart-note"><span>接收成功 ≠ 媒体入库 ≠ 最终有效</span><span>结果未知 ${m.unknown} 条</span></div></div></section><section class="card"><div class="card-head"><h2>待办与提醒</h2><button class="link tiny" data-nav="exceptions">查看异常 →</button></div><div class="card-body">${[[l.items.filter(x=>x.status==='QUARANTINED').length+' 条线索待核验','检查来源、车型映射与接收方授权','governance','⊙'],[m.pending+' 笔分发待媒体反馈','在模拟回调中验证入库和有效状态','deliveries','⌁'],[o.active_demands+' 项需求执行中','额度仅在最终有效后计入达成','demands','▤']].map(([n,t,v,ic])=>`<div class="work-item"><span class="icon">${ic}</span><div><p>${n}</p><small>${t}</small></div><button class="link" data-nav="${v}">→</button></div>`).join('')}</div></section></div><section class="card"><div class="card-head"><div><h2>执行中的采购需求</h2><span class="sub">媒体原始编号 · 有效 / 在途 / 剩余配额</span></div><button class="link tiny" data-nav="demands">全部需求 →</button></div>${demandTable(d.items.filter(x=>x.status==='ACTIVE').slice(0,4),false)}</section><div class="callout">首次使用？打开「验收向导」，按步骤验证表格导入、5条线索分发给两家媒体、跨链路去重和回调状态。所有演示数据与真实媒体隔离。</div>`}
 function leadCell(lead,key){
  if(key==='status')return badge(lead.status);
@@ -493,17 +465,17 @@ async function showPreview(){
  modal('匹配预览',`<div class="callout" id="preview-summary">已选 ${state.selected.size} 条线索，其中 ${matched} 条有可分发结果，共 ${results.length} 项可分发结果。${results.length?'请核对后确认创建分发。':'请返回调整选择。'}确认时会再次校验规则及剩余额度。</div>
  <div id="preview-results">${previewResults(p)}</div><div class="form-actions"><button data-action="close-modal">返回修改</button><button class="primary" data-action="confirm-dispatch" ${!results.length?'disabled':''}>确认创建分发</button></div>`,true);updatePreviewSelection();
 }
-function newDemand(){
+async function newDemand(){
  const routes=state.catalog.routes.filter(r=>r.enabled),route=routes[0];
  if(!route)throw new Error('请先配置可用交付路由');
  modal('新建需求',`<form id="demand-form" class="grid-form">
  <label>媒体需求编号<input name="demand_no" required></label><label>合作项目<select name="sale_project" required>${opt('MEMBER','会员','MEMBER')}${opt('KA','KA')}</select></label>
  <label class="span2">交付路由<select name="route_id" data-yc-route required>${routes.map(r=>opt(r.id,partner(r.buyer_id)+' → '+partner(r.media_id),route.id)).join('')}</select></label>
- <label>车型<select name="series_id" required>${state.catalog.vehicles.map(v=>opt(v.series_id,v.series_name)).join('')}</select></label><label>城市<select name="city_code" required>${state.catalog.cities.map(v=>opt(v.code,v.name)).join('')}</select></label>
+ <label>车型<select name="series_id" required><option value="">加载该媒体车型库…</option></select></label><label>城市<select name="city_code" required><option value="">加载该媒体城市库…</option></select></label>
  <label>需求总量<input name="target_total" type="number" min="1" value="5" required></label><label>每日限额<input name="daily_limit" type="number" min="1" value="5" required></label>
  <label>结算单价（元）<input name="price_yuan" type="number" min="0" step="0.01" value="0" required></label><label>优先级<input name="priority" type="number" min="1" max="100" value="50" required></label>
  ${ycDemandForm()}<p class="span2 smalltext muted">匹配方式继承所选合作主体的会员/KA项目配置，草稿审核通过后参与分发。</p><div class="form-actions span2"><button type="button" data-action="close-modal">取消</button><button type="submit" class="primary">保存草稿</button></div></form>`,true);
- const fields=$('#demand-form [data-yc-config]');fields.hidden=fields.disabled=route.media_id!=='MEDIA_A';
+ await updateDemandMediaChoices($('#demand-form'));
 }
 function importModal(p){state.importPreview=p;const fields=[['name','姓名'],['gender','性别'],['phone','电话'],['brand_name','品牌'],['model','车型'],['city','城市'],['acquisition_channel','获客渠道'],['is_sold','是否售卖'],['sale_media','售卖媒体'],['sale_project','项目'],['sold_at','售卖时间'],['source_record_id','来源记录编号'],['collected_at','采集时间'],...Object.entries(ycLeadNames)];modal('表格预检 · '+p.filename,`${p.format_notice?`<div class="callout warning">${esc(p.format_notice)}</div>`:''}<div class="stats">${stat('总行数',p.total,'待确认','▤')}${stat('可新增',p.valid,'保存后可参与分发','✓')}${stat('重复',p.duplicates,'追加来源不增加库存','↻')}${stat('错误',p.errors,'错误行不入库','!')}</div>${state.importFile?`<details><summary class="smalltext">表头不一致？调整字段映射</summary><form id="mapping-form" class="grid-form">${p.headers.map(h=>`<label>${esc(h)}<select name="${esc(h)}"><option value="${esc(h)}">自动识别 / 保留原列名</option>${fields.map(([v,n])=>opt(v,n)).join('')}</select></label>`).join('')}<div class="span2"><button type="submit">按映射重新预检</button></div></form></details>`:''}${table(['行号','来源记录编号','脱敏手机号','结果','原因'],p.rows.slice(0,100).map(x=>[x.row,esc(x.source_record_id),esc(x.phone),badge(x.status),esc(x.errors.join('；')||'—')]))}${p.total>100?'<p class="smalltext muted">仅展示前100行；提交按全部预检结果处理。</p>':''}<div class="form-actions"><a class="btn" href="/api/v1/imports/${p.id}/errors">下载错误行</a><button data-action="commit-import" data-mode="ALL_VALID" ${p.errors?'disabled':''}>全部无错后入库</button><button class="primary" data-action="commit-import" data-mode="VALID_ROWS">仅导入合格行</button></div>`,true)}
 function routeEnvironmentLabel(value){return ({TEST:'测试接口',PRODUCTION:'正式接口',MOCK:'本地模拟',EXTERNAL:'其他专用接口'})[value]||'待配置'}
@@ -524,7 +496,8 @@ function navigate(v){if(state.view===v&&$('#main')?.querySelector('h1'))return;l
 async function refresh(){state.catalog=await api('catalogs');await render()}
 $('#app').addEventListener('change',async e=>{try{if(e.target.matches('[data-check-lead]')){const id=e.target.dataset.checkLead;if(e.target.checked)state.selected.add(id);else state.selected.delete(id);if($('#selected-note'))$('#selected-note').textContent='已选择 '+state.selected.size+' 条线索';document.querySelectorAll('[data-action=preview]').forEach(b=>b.disabled=!state.selected.size||!state.selectedDemands.size||selectedAutoProject())}if(e.target.matches('[data-check-buyer]')){state.selectedBuyers=new Set(e.target.checked?[e.target.dataset.checkBuyer]:[]);state.selected.clear();state.selectedDemands.clear();matchingFilters={};state.page=1;resolveBuyerSelection();await render()}if(e.target.matches('[data-check-demand]')){if(e.target.checked)state.selectedDemands.add(e.target.dataset.checkDemand);else state.selectedDemands.delete(e.target.dataset.checkDemand)}if(e.target.id==='page-size'){state.size=Number(e.target.value);state.page=1;await render()}}catch(e){toast(e.message,true)}});
 document.addEventListener('click',async e=>{const b=e.target.closest('button,[data-nav]');if(!b||b.disabled)return;if(b.dataset.nav){navigate(b.dataset.nav);return}const action=b.dataset.action;if(!action)return;const id=b.dataset.id;try{b.disabled=true;
- if(action==='close-modal')$('#dialog').close();
+ if(action.startsWith('catalog-'))await catalogsUI().action(action);
+ else if(action==='close-modal')$('#dialog').close();
  else if(action==='logout'){await api('logout','POST',{});state.user=null;state.selected.clear();state.selectedDemands.clear();state.selectedBuyers.clear();login()}
  else if(action==='refresh')await refresh();
  else if(action==='prev'){state.page--;await render()}
@@ -562,7 +535,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button,[da
  else if(action==='demand-sync-detail'){const row=await api('demand-sync/projects/'+id);modal('原表项目 · '+(row.values['需求编号']||'未填写需求编号'),`<p class="smalltext muted">原表第 ${row.row_number} 行 · 最近读取 ${fmt(row.last_seen_at)}</p>${table(['原表字段','同步值'],Object.entries(row.values).map(([key,value])=>[esc(key),key==='城市&地区'||key==='城市'?regionCell(value):key==='车型'?modelCell(value):esc(value||'—')]))}<details><summary>原始单元格值</summary><pre class="code">${esc(JSON.stringify(row.raw_values,null,2))}</pre></details>${row.history?.length?`<details><summary>历史版本（${row.history.length}）</summary>${row.history.map(h=>`<h4>原表第 ${h.row_number} 行 · ${esc(h.reason)}</h4><p class="smalltext muted">存档时间：${fmt(h.created_at)}</p>${table(['原表字段','历史值'],Object.entries(h.values).map(([k,v])=>[esc(k),esc(v||'—')]))}`).join('')}</details>`:''}`,true);}
  else if(action==='demand-sync-prev'||action==='demand-sync-next'){demandSyncView.page+=action==='demand-sync-next'?1:-1;await render();}
  else if(action==='demand-sync-reset'){demandSyncView.filters={};demandSyncView.page=1;await render();}
- else if(action==='new-demand')newDemand();
+ else if(action==='new-demand')await newDemand();
  else if(['yiche-code-add','yiche-code-edit','yiche-code-delete'].includes(action)){
   yicheCodeForm(action.slice('yiche-code-'.length),id);
  }
@@ -675,6 +648,7 @@ document.addEventListener('submit',async e=>{e.preventDefault();const f=e.target
   await api('leads/'+encodeURIComponent(f.dataset.id)+'/gender','POST',{gender:data.gender,version:Number(f.dataset.version)});
   $('#dialog').close();toast('性别已保存');await render();return;
  }
+ if(f.id.startsWith('catalog-')){await catalogsUI().submit(f,data);return}
  if(f.id==='vehicle-search-form'){
   vehicleLibrary={id:data.media,q:data.q.trim(),page:1};await render();return;
  }
@@ -742,7 +716,7 @@ document.addEventListener('submit',async e=>{e.preventDefault();const f=e.target
  else if(f.id==='mapping-form'){const r=await api('imports','POST',{...state.importFile,column_mapping:data});importModal(r);return}
  else return;
  $('#dialog').close();await refresh();
- }catch(err){if(f.id==='login-form'){$('#login-error').textContent=err.message}else if(f.id==='demand-excel-form'){demandExcelFeedback(f,'预检失败：'+err.message,true)}else if(['demand-sync-form','partner-edit-form','lead-form','route-sending-form'].includes(f.id)){demandExcelFeedback(f,err.message,true)}else toast(err.message,true)}finally{if(b){b.disabled=false;if(b.dataset.originalText){b.textContent=b.dataset.originalText;delete b.dataset.originalText;}}}});
+ }catch(err){if(f.id==='login-form'){$('#login-error').textContent=err.message}else if(f.id==='demand-excel-form'){demandExcelFeedback(f,'预检失败：'+err.message,true)}else if(['demand-sync-form','partner-edit-form','lead-form','demand-form','route-sending-form'].includes(f.id)){demandExcelFeedback(f,err.message,true)}else toast(err.message,true)}finally{if(b){b.disabled=false;if(b.dataset.originalText){b.textContent=b.dataset.originalText;delete b.dataset.originalText;}}}});
 function login(){state.user=null;const demoMode=document.querySelector('meta[name=demo-mode]')?.content==='true';const publicTest=document.querySelector('meta[name=public-test]')?.content==='true';$('#app').innerHTML=`<div class="login"><section class="login-info"><div class="brand"><span class="brand-logo">⌁</span><div><strong>车联汇</strong><small>AUTO LEAD WORKSPACE</small></div></div><div><span class="test-label">${demoMode?'LOCAL TEST WORKSPACE':'LEAD WORKSPACE'}</span><h1>让线索流转有序，<br>让每次交付可见。</h1><p>从多渠道采集，到需求匹配与媒体交付。把每条线索的来源、去向与结果连接起来。</p></div></section><section class="login-main"><form class="login-form" id="login-form"><div class="eyebrow">WELCOME TO YOUR WORKSPACE</div><h2>${demoMode?'进入测试工作台':'登录工作台'}</h2><p class="muted smalltext">${demoMode?'使用虚构数据，体验完整业务流程。':'请使用管理员分配的账号和密码。'}</p><label>账号${demoMode?`<select name="username">${Object.entries(roles).map(([v,t])=>opt(v,t+'（'+v+'）')).join('')}</select>`:'<input name="username" required autocomplete="username">'}</label><label>密码<input type="password" name="password" value="${demoMode&&!publicTest?'Demo2026!':''}" required autocomplete="current-password"></label><div class="error-msg" id="login-error" role="alert"></div><button class="primary" type="submit">进入工作台 →</button><div class="hint">${demoMode&&!publicTest?'共用测试密码：Demo2026!':'请使用管理员分配的独立密码。'}<br>运营负责录入与分发，商务审核需求，合规核验授权及审批导出。管理员可调整分发策略。</div><p class="tiny muted" style="margin-top:24px">${demoMode?'本机演示环境':'汽车线索管理平台'}</p></form></section></div>`}
 async function start(){try{state.user=await api('me');state.catalog=await api('catalogs');await render()}catch(e){if(e.status===401)login();else{$('#app').innerHTML=`<div class="loading">${esc(e.message)}<br><button data-action="refresh">重试</button></div>`}}}
 window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(state.user&&v!==state.view)navigate(v)});
@@ -753,7 +727,27 @@ function ycInput(k,n,v=''){return `<label>${esc(n)}<input name="yc_${k}" value="
 function ycLeadForm(v={},open=false){return `<details class="span2" ${open?'open':''}><summary>易车线索字段（选填）</summary><p class="smalltext muted">编码可随线索填入校验；未填时按易车需求映射上报。姓名为空使用“询价客户”，请求 IP 缺省使用 127.0.0.1。IP、设备 ID、链接和经纬度加密存储；补充时留空保留原值。</p><div class="grid-form">${Object.entries(ycLeadNames).map(([k,n])=>ycInput(k,n,v[k])).join('')}</div></details>`}
 function ycDemandForm(v={},hidden=false){return `<fieldset data-yc-config class="span2 grid-form" ${hidden?'hidden disabled':''}><legend>易车上报配置</legend><p class="smalltext muted span2">请填易车分配的平台 ID 和官方字典编码。城市取 cityCode；车系、厂商分别取 seriesId、factoryId。回调地址由系统生成。草稿可先保存，提交前必须补齐。</p>${Object.entries(ycDemandNames).map(([k,n])=>k==='clueTypeId'?`<label>线索类型<select name="yc_clueTypeId">${[['1','1 · 询价'],['2','2 · 贷款'],['83','83 · 需填写需求 ID']].map(([val,title])=>opt(val,title,String(v[k]||1))).join('')}</select></label>`:ycInput(k,n,v[k])).join('')}<div class="span2"><button type="button" class="small" data-action="yiche-demo">填入模拟编码</button></div></fieldset>`}
 function takeYc(data){const v={};for(const k of Object.keys(data))if(k.startsWith('yc_')){if(data[k]!=='')v[k.slice(3)]=data[k];delete data[k]}return v}
-document.addEventListener('change',e=>{if(!e.target.matches('[data-yc-route]'))return;const el=e.target.form.querySelector('[data-yc-config]');el.hidden=el.disabled=state.catalog.routes.find(r=>r.id===e.target.value)?.media_id!=='MEDIA_A'});
+async function updateDemandMediaChoices(form){
+ const routeId=form.elements.route_id.value,route=state.catalog.routes.find(row=>row.id===routeId);
+ if(!route)return;
+ const submit=form.querySelector('button[type=submit]');submit.disabled=true;
+ form.querySelector('.demand-excel-feedback')?.remove();
+ try{
+  const options=await api('media-catalogs/vehicles/'+encodeURIComponent(route.media_id)+'/options');
+  if(!form.isConnected||form.elements.route_id.value!==routeId)return;
+  const managed=options.configured||route.adapter_version==='zhemanhui-v1';
+  const models=managed?options.models.map(row=>[row.value,row.brand_name+' · '+row.series_name]):state.catalog.vehicles.map(row=>[row.series_id,row.series_name]);
+  const cities=managed?options.cities.map(row=>[row.value,(row.parent_name?row.parent_name+' · ':'')+row.city_name]):state.catalog.cities.map(row=>[row.code,row.name]);
+  form.elements.series_id.innerHTML='<option value="">请选择该媒体车系</option>'+models.map(([value,label])=>opt(value,label)).join('');
+  form.elements.city_code.innerHTML='<option value="">请选择该媒体城市</option>'+cities.map(([value,label])=>opt(value,label)).join('');
+  const fields=form.querySelector('[data-yc-config]');fields.hidden=fields.disabled=route.media_id!=='MEDIA_A'||route.adapter_version==='zhemanhui-v1';
+  for(const key of ['cityId','serialId','manufacturerId','brandId','carId']){
+   const input=fields.querySelector('[name=yc_'+key+']');if(input){input.disabled=managed;input.placeholder=managed?'由最终媒体字典自动匹配':'';}
+  }
+  if(managed&&(!models.length||!cities.length))demandExcelFeedback(form,'该最终媒体车型库或城市库为空，请先在对应字典栏目配置API并同步。',true);
+ }catch(error){demandExcelFeedback(form,error.message,true)}finally{if(form.isConnected&&form.elements.route_id.value===routeId)submit.disabled=false;}
+}
+document.addEventListener('change',async event=>{if(event.target.matches('[data-yc-route]'))await updateDemandMediaChoices(event.target.form)});
 document.addEventListener('change',async e=>{
  if(e.target.id==='entry-is-sold'){
   const enabled=e.target.value==='是';
@@ -900,3 +894,5 @@ document.addEventListener('change',e=>{
  if(!e.target.matches('#config-form[data-kind="partners"] [name="role"]'))return;
  const agency=e.target.value==='AGENCY',section=$('#agency-final-media-field'),input=section.querySelector('input');section.hidden=!agency;input.disabled=!agency;input.required=agency;if(!agency)input.value='';
 });
+
+document.addEventListener('change',async event=>{if(['catalog-media','catalog-size'].includes(event.target.id)){try{await catalogsUI().change(event.target)}catch(error){toast(error.message,true)}}});

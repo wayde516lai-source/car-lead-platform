@@ -70,9 +70,9 @@ class SyncedDemandsMixin:
   if not brand_ok:
    # A factory-specific brand may only match models that actually belong to it.
    factories=context.setdefault('factories',{}) if context is not None else {}
-   key=(a['org_id'],l['series_id'])
+   key=(a['org_id'],d['media_id'],l['series_id'])
    if key not in factories:
-    library=c.execute('SELECT DISTINCT brand_name,series_name,factory_name FROM media_vehicle_items WHERE org_id=? AND brand_name=? COLLATE NOCASE',(a['org_id'],v['brand_name']))
+    library=c.execute('SELECT DISTINCT brand_name,series_name,factory_name FROM media_vehicle_items WHERE org_id=? AND media_id=? AND brand_name=? COLLATE NOCASE',(a['org_id'],d['media_id'],v['brand_name']))
     factories[key]={norm(r['factory_name']) for r in library if norm(r['brand_name'])==norm(v['brand_name']) and model_name(r['series_name'],r['brand_name'])==model_name(v['series_name'],v['brand_name'])}
    brand_ok=norm(d['match_brand']) in factories[key]
   if not brand_ok:return 'MODEL_MISMATCH'

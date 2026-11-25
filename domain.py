@@ -76,7 +76,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    migrations = ((2, '002_yiche.sql'), (3, '003_media_vehicles.sql'),
                  (4, '004_media_vehicle_schedule.sql'), (5, '005_yiche_submissions.sql'),
                  (6, '006_lead_fields.sql'), (7, '007_lead_number_permission.sql'),
-                 (8, '008_yiche_code_management.sql'), (9, '009_cooperation_terms.sql'), (10, '010_source_api_details.sql'), (11, '011_lead_sales.sql'), (12, '012_manual_models_gender.sql'), (13, '013_import_acquisition_channel.sql'), (14, '014_delivery_project.sql'), (15, '015_distribution_rules.sql'), (16, '016_demand_sync.sql'), (17, '017_synced_demands.sql'), (18, '018_partner_project.sql'), (19, '019_source_partner.sql'), (20, '020_partner_projects.sql'), (21, '021_agency_final_media.sql'), (22, '022_explicit_projects.sql'), (23, '023_sync_history.sql'), (24, '024_zhemanhui.sql'), (25, '025_demand_excel.sql'), (26, '026_optional_excel_demand_no.sql'), (27, '027_replace_demand_source.sql'), (28, '028_partner_project_enabled.sql'), (29, '029_ka_demand_api.sql'), (30, '030_demand_source_deletion.sql'), (31, '031_route_send_controls.sql'))
+                 (8, '008_yiche_code_management.sql'), (9, '009_cooperation_terms.sql'), (10, '010_source_api_details.sql'), (11, '011_lead_sales.sql'), (12, '012_manual_models_gender.sql'), (13, '013_import_acquisition_channel.sql'), (14, '014_delivery_project.sql'), (15, '015_distribution_rules.sql'), (16, '016_demand_sync.sql'), (17, '017_synced_demands.sql'), (18, '018_partner_project.sql'), (19, '019_source_partner.sql'), (20, '020_partner_projects.sql'), (21, '021_agency_final_media.sql'), (22, '022_explicit_projects.sql'), (23, '023_sync_history.sql'), (24, '024_zhemanhui.sql'), (25, '025_demand_excel.sql'), (26, '026_optional_excel_demand_no.sql'), (27, '027_replace_demand_source.sql'), (28, '028_partner_project_enabled.sql'), (29, '029_ka_demand_api.sql'), (30, '030_demand_source_deletion.sql'), (31, '031_route_send_controls.sql'), (32, '032_media_city_catalogs.sql'))
    for version, filename in migrations:
     if c.execute('SELECT 1 FROM schema_version WHERE version=?', (version,)).fetchone():
      continue
@@ -578,12 +578,19 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   if not isinstance(no,str) or not no.strip():raise Fault('MEDIA_DEMAND_NO_REQUIRED','必须填写媒体提供的需求编号，按文本保留前导零')
   with self.tx() as c:
    r=self.one(c,'routes',data.get('route_id'),a);s=data.get('series_id','BMW_X5')
+   from media_catalog_matching import requires_media_catalogs,register_demand_vehicle,resolve_media_codes,yiche_fields_from_catalog
+   managed=requires_media_catalogs(c,a['org_id'],r,strict=not self.mock_enabled)
+   if managed:s=register_demand_vehicle(c,a['org_id'],r['media_id'],s)
    yc=self._yiche_demand(data.get('yiche',{})) if r['media_id']=='MEDIA_A' else {}
    if not c.execute('SELECT 1 FROM catalog WHERE series_id=?',(s,)).fetchone():raise Fault('MODEL_UNMAPPED','请选择标准车型')
    if c.execute('SELECT 1 FROM manual_vehicle_entries WHERE series_id=? AND org_id!=?',(s,a['org_id'])).fetchone():
     raise Fault('MODEL_UNMAPPED','车型不存在或不可使用')
    total=int(data.get('target_total',5));daily=int(data.get('daily_limit',total));price=int(data.get('unit_price_fen',0));priority=int(data.get('priority',50));cities=data.get('city_codes',['310100'])
-   if total<1 or daily<1 or daily>total or price<0 or not 1<=priority<=100 or not cities or any(x not in ['310100','110100'] for x in cities):raise Fault('DEMAND_INVALID','数量、优先级、价格或城市不符合要求')
+   if total<1 or daily<1 or daily>total or price<0 or not 1<=priority<=100 or not isinstance(cities,list) or not 1<=len(cities)<=100 or any(not isinstance(city,str) or not city.strip() or len(city)>100 for city in cities) or (not managed and any(x not in ['310100','110100'] for x in cities)):raise Fault('DEMAND_INVALID','数量、优先级、价格或城市不符合要求')
+   if managed:
+    codes=[resolve_media_codes(c,a['org_id'],r['media_id'],{'series_id':s,'city_code':city}) for city in cities]
+    if len(codes)==1 and r['media_id']=='MEDIA_A' and r['adapter_version']!='zhemanhui-v1':
+     yc,_=yiche_fields_from_catalog(yc,{},codes[0])
    if r['media_id']=='MEDIA_A' and len(cities)!=1:raise Fault('YICHE_FIELDS_INVALID','易车需求只可绑定一个易车城市 ID，请按城市分别建需求')
    start=data.get('start_at',later(days=-1));end=data.get('end_at',later(days=30))
    if parse(start)>=parse(end):raise Fault('TIME_INVALID','需求结束必须晚于开始')
@@ -660,7 +667,8 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
      return 'MODEL_MISMATCH'
     if not (wide and wide['all_series']) and lead_vehicle['series_name']!=demand_vehicle['series_name']:
      return 'MODEL_MISMATCH'
-   if l['city_code'] not in json.loads(d['city_codes']):return 'CITY_MISMATCH'
+   from synced_demands import city_name
+   if city_name(l['city_code']) not in {city_name(value) for value in json.loads(d['city_codes'])}:return 'CITY_MISMATCH'
   return None
  def _block(self,c,a,l,d,skip_delivery=None,project=None,match_context=None):
   reason=self._basic_match_block(c,a,l,d,project,match_context)
@@ -674,6 +682,10 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   if not self.mock_enabled and r['adapter_version']=='mock-v1' and not (self.yiche_live and r['receiver_id']=='MEDIA_A' and r['media_id']=='MEDIA_A'):return 'MOCK_DISABLED'
   if not self._demand_project_enabled(c,a,d,project):return 'PROJECT_PAUSED'
   if not r['enabled']:return 'ROUTE_UNAVAILABLE'
+  from media_catalog_matching import requires_media_catalogs,resolve_media_codes
+  if requires_media_catalogs(c,a['org_id'],r,strict=not self.mock_enabled):
+   try:resolve_media_codes(c,a['org_id'],r['media_id'],l,match_context)
+   except Fault as error:return error.code
   if r['adapter_version']=='zhemanhui-v1':
    from route_sending import send_block
    blocked=send_block(c,a['org_id'],r)
@@ -693,9 +705,12 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   if reason:return reason
   if d.get('external_project_id') and self.yiche_live:return 'YICHE_CONFIG_REQUIRED'
   if d['media_id']=='MEDIA_A' and not skip_delivery and not d.get('external_project_id'):
-   try:cfg=yiche.demand_fields(json.loads(d['yiche_config']),True)
+   raw_cfg=json.loads(d['yiche_config']);extra=self._yiche_lead(l)
+   if requires_media_catalogs(c,a['org_id'],r,strict=not self.mock_enabled):
+    from media_catalog_matching import yiche_fields_from_catalog
+    raw_cfg,extra=yiche_fields_from_catalog(raw_cfg,extra,resolve_media_codes(c,a['org_id'],r['media_id'],l,match_context))
+   try:cfg=yiche.demand_fields(raw_cfg,True)
    except ValueError:return 'YICHE_CONFIG_REQUIRED'
-   extra=self._yiche_lead(l)
    if any(k in cfg and k in extra and cfg[k]!=extra[k] for k in yiche.LEAD_IDS):return 'YICHE_MAPPING_MISMATCH'
   if d.get('api_submit_limit') is not None:
    from ka_demand_sources import submission_usage
@@ -746,12 +761,18 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
      from route_sending import control
      r['send_environment']=control(c,a['org_id'],r['id'])['environment']
     payload={'delivery_id':id,'lead_ref':l['lead_no'],'demand_no':external_demand_no(d),'agency_demand_no':d['agency_demand_no'],'customer':{'name':self.vault.decrypt(l['name_cipher']),'phone':self.vault.decrypt(l['phone_cipher'])},'vehicle':{'series':l['series_id'],'city':l['city_code']},'route':{'direct_receiver':r['receiver_id'],'final_media':r['media_id']},'collected_at':l['collected_at'],'schema_version':'1'}
+    from media_catalog_matching import requires_media_catalogs,resolve_media_codes
+    if requires_media_catalogs(c,a['org_id'],r,strict=not self.mock_enabled):payload['media_dictionary']=resolve_media_codes(c,a['org_id'],r['media_id'],l)
     if d.get('external_project_id'):
      payload['simulation_only']=True
      payload['source_project']={'id':d['external_project_id'],'brand':d['match_brand'],'models':json.loads(d['match_models']),'regions':json.loads(d['match_regions']),'project':d['sale_project'],'demand_no':external_demand_no(d)}
     elif d['media_id']=='MEDIA_A' and r['adapter_version']!='zhemanhui-v1':
-     extra=self._yiche_lead(l)
-     payload['yiche_request']=yiche.build_request(json.loads(d['yiche_config']),extra,payload['customer']['phone'],payload['customer']['name'],id)
+     extra=self._yiche_lead(l);cfg=json.loads(d['yiche_config'])
+     if payload.get('media_dictionary'):
+      from media_catalog_matching import yiche_fields_from_catalog
+      cfg,extra=yiche_fields_from_catalog(cfg,extra,payload['media_dictionary'])
+      payload['yiche_config']=cfg
+     payload['yiche_request']=yiche.build_request(cfg,extra,payload['customer']['phone'],payload['customer']['name'],id)
      payload['yiche_mock']=not (self.yiche_live and r['receiver_id']=='MEDIA_A')
      if not payload['yiche_mock']:
       payload['yiche_lead']=extra
@@ -804,7 +825,8 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
     live=False;zmh=False
     if json.loads(d['route_snapshot']).get('adapter_version')=='zhemanhui-v1':
      try:request=self._zmh_request(c,a,d,l,json.loads(self.vault.decrypt(d['payload_cipher'])))
-     except (Fault,ValueError):self._cancel(c,a,d['id'],'ZMH_CONFIG_REQUIRED');continue
+     except Fault as error:self._cancel(c,a,d['id'],error.code);continue
+     except ValueError:self._cancel(c,a,d['id'],'ZMH_CONFIG_REQUIRED');continue
      zmh=True
     if not zmh and d['media_id']=='MEDIA_A':
      payload=json.loads(self.vault.decrypt(d['payload_cipher']))
@@ -815,9 +837,15 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
      live=payload.get('yiche_mock') is False and d['receiver_id']=='MEDIA_A'
      if live:
       if self.yiche_live is None:continue
-      cfg=json.loads(json.loads(d['demand_snapshot'])['yiche_config'])
+      cfg=payload.get('yiche_config') or json.loads(json.loads(d['demand_snapshot'])['yiche_config'])
       extra=payload['yiche_lead']
-      if not self._yiche_vehicle_exists(c,a['org_id'],cfg,extra):
+      from media_catalog_matching import requires_media_catalogs,delivery_media_codes,yiche_fields_from_catalog
+      if requires_media_catalogs(c,a['org_id'],json.loads(d['route_snapshot']),strict=not self.mock_enabled):
+       try:
+        codes=delivery_media_codes(c,a['org_id'],d,l,payload)
+        cfg,extra=yiche_fields_from_catalog(cfg,extra,codes)
+       except Fault as error:self._cancel(c,a,d['id'],error.code);continue
+      if not self._yiche_vehicle_exists(c,a['org_id'],cfg,extra,d['media_id']):
        self._cancel(c,a,d['id'],'YICHE_CATALOG_MISMATCH');continue
       request,token_hash=yiche_transport.prepare(self.yiche_live,cfg,extra,payload['customer'],d['id'])
     # 正式环境不允许未知适配器或旧交付快照回退成模拟成功。
@@ -843,16 +871,16 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   for delivery_id,request in live_jobs:
    self._send_yiche(a,delivery_id,request)
   return {'processed':processed,'count':len(processed)}
- def _yiche_vehicle_exists(self,c,org,cfg,extra):
+ def _yiche_vehicle_exists(self,c,org,cfg,extra,media_id='MEDIA_A'):
   car=extra.get('carId',cfg.get('carId'))
   exists=c.execute('''SELECT 1 FROM media_vehicle_items
-      WHERE org_id=? AND media_id='MEDIA_A' AND series_id=? AND factory_id=?
+      WHERE org_id=? AND media_id=? AND series_id=? AND factory_id=?
       AND (? IS NULL OR car_id=?) AND (? IS NULL OR brand_id=?) LIMIT 1''',
-      (org,cfg['serialId'],cfg['manufacturerId'],car,car,cfg.get('brandId'),cfg.get('brandId'))).fetchone()
+      (org,media_id,cfg['serialId'],cfg['manufacturerId'],car,car,cfg.get('brandId'),cfg.get('brandId'))).fetchone()
   if not exists:return False
   return 'csId2' not in cfg or bool(c.execute(
-      "SELECT 1 FROM media_vehicle_items WHERE org_id=? AND media_id='MEDIA_A' AND series_id=?",
-      (org,cfg['csId2'])).fetchone())
+      "SELECT 1 FROM media_vehicle_items WHERE org_id=? AND media_id=? AND series_id=?",
+      (org,media_id,cfg['csId2'])).fetchone())
  def _send_yiche(self,a,id,request):
   # Claim first, then perform network I/O outside the SQLite transaction.
   with self.tx() as c:
@@ -1377,6 +1405,15 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
      if 'lead_no' not in restricted:payload.pop('lead_ref',None)
      if 'collected_at' not in restricted:payload.pop('collected_at',None)
      vehicle=payload.get('vehicle',{})
+     media_codes=payload.get('media_dictionary',{});media_config=payload.get('yiche_config',{})
+     if 'city' not in restricted:
+      for key in ('city_id','city_name'):media_codes.pop(key,None)
+      media_config.pop('cityId',None)
+     if 'model' not in restricted:
+      for key in ('series_id','series_name','factory_id'):media_codes.pop(key,None)
+      for key in ('serialId','manufacturerId','carId','csId2'):media_config.pop(key,None)
+     if 'brand' not in restricted:
+      media_codes.pop('brand_id',None);media_config.pop('brandId',None)
      if 'city' not in restricted:
       vehicle.pop('city',None)
       payload.get('yiche_request',{}).get('param',{}).pop('cityId',None)

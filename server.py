@@ -11,6 +11,7 @@ from urllib.parse import parse_qs,urlparse
 from domain import Platform,Fault,PERMS,now,uid,later
 from security import canonical,digest,verify_password,sign
 from media_vehicles import MediaVehicles
+from media_catalogs import MediaCatalogs
 from demand_sync import DemandSync
 from demand_excel import DemandExcel,template_bytes
 from bootstrap import prepare_startup
@@ -112,6 +113,15 @@ class Handler(BaseHTTPRequestHandler):
    if path=='/api/v1/yiche-codes':
     if method=='GET':return self.ok(P.yiche_codes(a))
     if method in ('POST','PATCH','DELETE'):return self.ok(P.edit_yiche_codes(a,method,data))
+   if path.startswith('/api/v1/media-catalogs/'):
+    parts=path.strip('/').split('/')
+    catalogs=MediaCatalogs(P)
+    if len(parts)==4 and method=='GET':return self.ok(catalogs.overview(a,parts[3]))
+    if len(parts)==5 and method=='GET':
+     return self.ok(catalogs.list(a,parts[4],parts[3],qs.get('q',''),int(qs.get('page','1')),int(qs.get('page_size','20'))))
+    if len(parts)==6 and parts[5]=='options' and method=='GET':return self.ok(catalogs.entry_options(a,parts[4]))
+    if len(parts)==6 and parts[5]=='config' and method=='PATCH':return self.ok(catalogs.configure(a,parts[4],parts[3],data))
+    if len(parts)==6 and parts[5]=='sync' and method=='POST':return self.ok(catalogs.start(a,parts[4],parts[3]),202)
    if path=='/api/v1/media-vehicles' and method=='GET':
     return self.ok(VEHICLES.overview(a))
    if path.startswith('/api/v1/media-vehicles/'):
@@ -421,6 +431,8 @@ def run():
  P.yiche_live=live
  server=ThreadingHTTPServer((args.host,args.port),Handler)
  VEHICLES=MediaVehicles(P)
+ catalogs=MediaCatalogs(P)
+ if not args.no_vehicle_sync:threading.Thread(target=catalogs.schedule,daemon=True).start()
  if not args.no_vehicle_sync:threading.Thread(target=VEHICLES.schedule, daemon=True).start()
  stop_distribution=threading.Event()
  DEMAND_SYNC=DemandSync(P)
@@ -442,5 +454,6 @@ def run():
  finally:
   stop_distribution.set()
   VEHICLES.stop.set()
+  catalogs.stop.set()
   server.server_close()
 if __name__=='__main__':run()
