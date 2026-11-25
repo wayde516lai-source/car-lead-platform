@@ -8,6 +8,7 @@ A=synced.A
 from zhemanhui import CALLBACK_PATH
 class ZmhIntegrationTests(unittest.TestCase):
  def setUp(self):
+  self.push_env=patch.dict(os.environ,{'ZMH_ENABLE_TEST_PUSH':'1'});self.push_env.start();self.addCleanup(self.push_env.stop)
   self.f=synced.SyncedDemandTests();self.f.setUp();self.p=self.f.p
   with self.p.tx() as c:
    c.execute("UPDATE routes SET adapter_version='zhemanhui-v1' WHERE id='AGENCY_TO_A'")

@@ -76,7 +76,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    migrations = ((2, '002_yiche.sql'), (3, '003_media_vehicles.sql'),
                  (4, '004_media_vehicle_schedule.sql'), (5, '005_yiche_submissions.sql'),
                  (6, '006_lead_fields.sql'), (7, '007_lead_number_permission.sql'),
-                 (8, '008_yiche_code_management.sql'), (9, '009_cooperation_terms.sql'), (10, '010_source_api_details.sql'), (11, '011_lead_sales.sql'), (12, '012_manual_models_gender.sql'), (13, '013_import_acquisition_channel.sql'), (14, '014_delivery_project.sql'), (15, '015_distribution_rules.sql'), (16, '016_demand_sync.sql'), (17, '017_synced_demands.sql'), (18, '018_partner_project.sql'), (19, '019_source_partner.sql'), (20, '020_partner_projects.sql'), (21, '021_agency_final_media.sql'), (22, '022_explicit_projects.sql'), (23, '023_sync_history.sql'), (24, '024_zhemanhui.sql'), (25, '025_demand_excel.sql'), (26, '026_optional_excel_demand_no.sql'), (27, '027_replace_demand_source.sql'), (28, '028_partner_project_enabled.sql'), (29, '029_ka_demand_api.sql'), (30, '030_demand_source_deletion.sql'), (31, '031_media_city_catalogs.sql'))
+                 (8, '008_yiche_code_management.sql'), (9, '009_cooperation_terms.sql'), (10, '010_source_api_details.sql'), (11, '011_lead_sales.sql'), (12, '012_manual_models_gender.sql'), (13, '013_import_acquisition_channel.sql'), (14, '014_delivery_project.sql'), (15, '015_distribution_rules.sql'), (16, '016_demand_sync.sql'), (17, '017_synced_demands.sql'), (18, '018_partner_project.sql'), (19, '019_source_partner.sql'), (20, '020_partner_projects.sql'), (21, '021_agency_final_media.sql'), (22, '022_explicit_projects.sql'), (23, '023_sync_history.sql'), (24, '024_zhemanhui.sql'), (25, '025_demand_excel.sql'), (26, '026_optional_excel_demand_no.sql'), (27, '027_replace_demand_source.sql'), (28, '028_partner_project_enabled.sql'), (29, '029_ka_demand_api.sql'), (30, '030_demand_source_deletion.sql'), (31, '031_route_send_controls.sql'), (32, '032_media_city_catalogs.sql'))
    for version, filename in migrations:
     if c.execute('SELECT 1 FROM schema_version WHERE version=?', (version,)).fetchone():
      continue
@@ -141,6 +141,8 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   c=self.connect()
   try:
    out={t:[dict(x) for x in c.execute('SELECT * FROM '+t+" WHERE org_id=?"+(" AND id NOT LIKE 'INTAKE:%'" if t=='channels' else ''),(a['org_id'],))] for t in ['partners','channels','routes']}
+   from route_sending import status as route_send_status
+   for route in out['routes']:route['sending']=route_send_status(self,c,a,route)
    from api_connection_status import connection_statuses,public_status
    inbound,outbound=connection_statuses(c,a['org_id'])
    for channel in out['channels']:channel.update(public_status(inbound.get(channel['id'])))
@@ -684,6 +686,10 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   if requires_media_catalogs(c,a['org_id'],r,strict=not self.mock_enabled):
    try:resolve_media_codes(c,a['org_id'],r['media_id'],l,match_context)
    except Fault as error:return error.code
+  if r['adapter_version']=='zhemanhui-v1':
+   from route_sending import send_block
+   blocked=send_block(c,a['org_id'],r)
+   if blocked:return blocked
   ch=self.one(c,'channels',l['channel_id'],a)
   if not ch['enabled']:return 'SOURCE_BLOCKED'
   for p in set([r['receiver_id'],r['media_id'],ch['source_partner_id']]):
@@ -733,7 +739,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    return {'items':items,'eligible':sum(x['eligible'] for x in items),'preview_version':self.preview_version(c,a)}
   finally:c.close()
  def preview_version(self,c,a):
-  return digest(canonical([tuple(x) for x in c.execute('SELECT id,version,status FROM demands WHERE org_id=? ORDER BY id',(a['org_id'],))])+canonical([tuple(x) for x in c.execute('SELECT * FROM settings WHERE org_id=?',(a['org_id'],))])+canonical([tuple(x) for x in c.execute('SELECT * FROM partner_projects WHERE org_id=? ORDER BY partner_id,project',(a['org_id'],))]))
+  return digest(canonical([tuple(x) for x in c.execute('SELECT id,version,status FROM demands WHERE org_id=? ORDER BY id',(a['org_id'],))])+canonical([tuple(x) for x in c.execute('SELECT * FROM settings WHERE org_id=?',(a['org_id'],))])+canonical([tuple(x) for x in c.execute('SELECT * FROM partner_projects WHERE org_id=? ORDER BY partner_id,project',(a['org_id'],))])+canonical([tuple(x) for x in c.execute('SELECT * FROM route_send_controls WHERE org_id=? ORDER BY route_id',(a['org_id'],))])+canonical([tuple(x) for x in c.execute('SELECT id,enabled FROM routes WHERE org_id=? ORDER BY id',(a['org_id'],))]))
  def dispatch(self,a,pairs,key,preview_version=None,projects=None,_connection=None,mode="MANUAL"):
   self.require(a,'dispatch')
   if not key:raise Fault('IDEMPOTENCY_REQUIRED','缺少业务幂等键')
@@ -751,6 +757,9 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
     l=self.one(c,'leads',lid,a);d=self.one(c,'demands',did,a);project=(projects or {}).get(did,d['sale_project']);reason=self._project_mode_block(c,a,d,mode,project) or self._block(c,a,l,d,project=project)
     if reason:items.append({'lead_id':lid,'demand_id':did,'reason':reason});continue
     id=uid('dl_');r=self.one(c,'routes',d['route_id'],a)
+    if r['adapter_version']=='zhemanhui-v1':
+     from route_sending import control
+     r['send_environment']=control(c,a['org_id'],r['id'])['environment']
     payload={'delivery_id':id,'lead_ref':l['lead_no'],'demand_no':external_demand_no(d),'agency_demand_no':d['agency_demand_no'],'customer':{'name':self.vault.decrypt(l['name_cipher']),'phone':self.vault.decrypt(l['phone_cipher'])},'vehicle':{'series':l['series_id'],'city':l['city_code']},'route':{'direct_receiver':r['receiver_id'],'final_media':r['media_id']},'collected_at':l['collected_at'],'schema_version':'1'}
     from media_catalog_matching import requires_media_catalogs,resolve_media_codes
     if requires_media_catalogs(c,a['org_id'],r,strict=not self.mock_enabled):payload['media_dictionary']=resolve_media_codes(c,a['org_id'],r['media_id'],l)

@@ -221,6 +221,10 @@ class Handler(BaseHTTPRequestHandler):
     for cell in ws[1]:cell.font=Font(bold=True,color='FFFFFF');cell.fill=PatternFill('solid',fgColor='123F32')
     f=io.BytesIO();wb.save(f);return self.send(200,f.getvalue(),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',{'Content-Disposition':'attachment; filename="leads-template.xlsx"'})
    rest=path.removeprefix('/api/v1/').split('/');table=rest[0]
+   if table=='routes' and len(rest)==3 and rest[2]=='sending':
+    from route_sending import get_status,update as update_route_sending
+    if method=='GET':return self.ok(get_status(P,a,rest[1]))
+    if method=='PATCH':return self.ok(update_route_sending(P,a,rest[1],data))
    if table in ['leads','demands','deliveries','imports','callback_events','privacy_requests','audit_log','exports']:
     if len(rest)==1:
      if method=='GET':

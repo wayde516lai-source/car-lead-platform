@@ -21,7 +21,7 @@ CLEARED_TABLES = frozenset({
     'partner_projects', 'partners', 'privacy_notices', 'privacy_requests',
     'quota_ledger', 'risk_blocklist', 'routes', 'sessions', 'source_api_keys',
     'source_lead_details', 'yiche_submissions', 'zmh_mappings', 'zmh_routes',
-    'zmh_submissions',
+    'zmh_submissions', 'route_send_controls',
 })
 
 

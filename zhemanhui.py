@@ -8,6 +8,7 @@ from urllib.request import Request,build_opener,HTTPRedirectHandler
 from urllib.error import HTTPError
 
 TEST_URL='http://yiche.asoapple.cn/api-test/v1/saveClue'
+PRODUCTION_URL='http://yiche.asoapple.cn/api/v1/saveClue'
 CALLBACK_PATH='/open/v1/zhemanhui/callback'
 
 @dataclass(frozen=True)
@@ -15,6 +16,7 @@ class Config:
     callback_url:str
     bearer_token:str=field(default='',repr=False)
     supid:str='6'
+    environment:str='TEST'
 
 class ProtocolError(ValueError):pass
 class NoRedirect(HTTPRedirectHandler):
@@ -45,7 +47,9 @@ def prepare(config,*,demand_no,city_id,series_id,name,mobile,delivery_id,callbac
     fields={'supid':'6','ptitle':demand_no,'cityId':str(city_id),'serialId':str(series_id),'name':name,'mobile':mobile,'plat':plat,'requestIp':request_ip,'sourceUrl':callback}
     headers={'Accept':'application/json','Content-Type':'application/json'}
     if config.bearer_token:headers['Authorization']='Bearer '+config.bearer_token
-    return Request(TEST_URL+'?'+urlencode(fields),headers=headers,method='GET')
+    if config.environment not in ('TEST','PRODUCTION'):raise ProtocolError('接口环境无效')
+    endpoint=PRODUCTION_URL if config.environment=='PRODUCTION' else TEST_URL
+    return Request(endpoint+'?'+urlencode(fields),headers=headers,method='GET')
 
 def submission_result(http_status,body):
     """Only supplier acceptance is established, never final media validity."""
@@ -60,9 +64,14 @@ def submission_result(http_status,body):
 
 def send_test(request,*,enabled=False,opener=None):
     """Opt-in test endpoint only; no redirects/retries (idempotency unspecified)."""
-    if not enabled:raise ProtocolError('乙方测试推送未启用')
+    return send_request(request,environment='TEST',enabled=enabled,opener=opener)
+
+def send_request(request,*,environment,enabled=False,opener=None):
+    """按明确环境仅向固定地址发送一次，不跟随重定向或自动重试。"""
+    if not enabled:raise ProtocolError('乙方推送未启用')
+    expected={'TEST':TEST_URL,'PRODUCTION':PRODUCTION_URL}.get(environment)
     p=urlsplit(request.full_url)
-    if p.scheme!='http' or p.netloc!='yiche.asoapple.cn' or p.path!='/api-test/v1/saveClue':raise ProtocolError('仅允许文档中的测试接口')
+    if not expected or p.fragment or request.get_method()!='GET' or request.full_url.split('?',1)[0]!=expected:raise ProtocolError('接口地址与发送环境不一致')
     opener=opener or build_opener(NoRedirect())
     try:
         with opener.open(request,timeout=15) as response:
