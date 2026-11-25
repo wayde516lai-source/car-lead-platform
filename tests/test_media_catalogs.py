@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import threading
 import time
+from datetime import timedelta
 import urllib.request
 import urllib.error
 import server
@@ -13,7 +14,7 @@ from security import digest
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
-from domain import Fault, Platform
+from domain import Fault, Platform, SH, parse
 from media_catalogs import DEFAULT_ENDPOINTS, MediaCatalogs, validated_endpoint
 from media_catalog_matching import delivery_media_codes, resolve_media_codes
 from media_vehicles import normalize_yiche
@@ -148,9 +149,15 @@ class CatalogTests(unittest.TestCase):
 
     def test_schedule_and_duplicate_claim(self):
         self.configure(schedule_hour=8)
-        with patch('media_catalogs.now', return_value='2026-11-24T23:00:00+00:00'):
+        clock = ['2026-11-24T23:00:00+00:00']
+        with patch('media_catalogs.now', side_effect=lambda: clock[0]), \
+                patch('media_catalogs.later',
+                      side_effect=lambda days=0, hours=0:
+                      (parse(clock[0]) + timedelta(days=days, hours=hours)).isoformat(timespec='seconds')), \
+                patch('media_catalogs.day',
+                      side_effect=lambda: parse(clock[0]).astimezone(SH).date().isoformat()):
             self.assertIsNone(self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto'))
-        with patch('media_catalogs.now', return_value='2026-11-25T00:00:00+00:00'):
+            clock[0] = '2026-11-25T00:00:00+00:00'
             self.assertIsNotNone(self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto'))
             self.assertIsNone(self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto'))
 
