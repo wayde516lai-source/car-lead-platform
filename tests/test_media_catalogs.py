@@ -230,11 +230,12 @@ class CatalogTests(unittest.TestCase):
             conn.execute('DROP TABLE media_city_items')
             conn.execute('DROP TABLE media_dictionary_sources')
             conn.execute('DROP TABLE media_dictionary_runs')
-            conn.execute('DELETE FROM schema_version WHERE version=31')
+            conn.execute('DROP TABLE route_send_controls')
+            conn.execute('DELETE FROM schema_version WHERE version>=31')
         upgraded = Platform(self.p.root)
         with upgraded.connect() as conn:
             self.assertEqual(conn.execute('SELECT series_id FROM media_vehicle_items').fetchone()[0], 701)
-            self.assertEqual(conn.execute('SELECT max(version) FROM schema_version').fetchone()[0], 31)
+            self.assertEqual(conn.execute('SELECT max(version) FROM schema_version').fetchone()[0], 32)
             self.assertEqual(conn.execute('SELECT count(*) FROM media_city_items').fetchone()[0], 0)
 
     def test_migration_reopen_preserves_dictionary_and_old_records(self):
@@ -242,7 +243,7 @@ class CatalogTests(unittest.TestCase):
         self.sync([page([car()])])
         reopened = Platform(self.p.root)
         with reopened.connect() as conn:
-            self.assertEqual(conn.execute('SELECT count(*) FROM schema_version WHERE version=31').fetchone()[0], 1)
+            self.assertEqual(conn.execute('SELECT count(*) FROM schema_version WHERE version=32').fetchone()[0], 1)
             self.assertEqual(conn.execute('SELECT count(*) FROM media_vehicle_items').fetchone()[0], 1)
             self.assertEqual(conn.execute('SELECT count(*) FROM media_city_items').fetchone()[0], 0)
             self.assertEqual(conn.execute('PRAGMA foreign_key_check').fetchall(), [])

@@ -37,4 +37,4 @@ CREATE TABLE media_dictionary_runs (
     error TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX media_dictionary_history ON media_dictionary_runs(org_id,media_id,kind,started_at DESC);
-INSERT INTO schema_version VALUES(31,datetime('now'));
+INSERT INTO schema_version VALUES(32,datetime('now'));
