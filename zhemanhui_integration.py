@@ -14,13 +14,21 @@ class ZhemanhuiMixin:
    row=c.execute('SELECT remote_id FROM zmh_mappings WHERE org_id=? AND route_id=? AND kind=? AND local_value=?',(a['org_id'],d['route_id'],kind,value)).fetchone()
    if not row:raise Fault('ZMH_MAPPING_REQUIRED','缺少软米城市或车系映射')
    return row[0]
+  from route_sending import control
+  environment=control(c,a['org_id'],d['route_id'])['environment']
+  snapshot_environment=json.loads(d['route_snapshot']).get('send_environment','TEST')
+  if environment!=snapshot_environment:raise Fault('ROUTE_SEND_CHANGED','交付环境已变化，请重新匹配')
   token=secrets.token_urlsafe(32)
-  req=protocol.prepare(protocol.Config(config['callback_url']),demand_no=payload['demand_no'],city_id=mapping('city',l['city_code']),series_id=mapping('series',l['series_id']),name=payload['customer']['name'],mobile=payload['customer']['phone'],delivery_id=d['id'],callback_token=token)
+  req=protocol.prepare(protocol.Config(config['callback_url'],environment=environment),demand_no=payload['demand_no'],city_id=mapping('city',l['city_code']),series_id=mapping('series',l['series_id']),name=payload['customer']['name'],mobile=payload['customer']['phone'],delivery_id=d['id'],callback_token=token)
   c.execute('INSERT INTO zmh_submissions(id,org_id,delivery_id,token_hash,created_at) VALUES(?,?,?,?,?)',(d['id'],a['org_id'],d['id'],digest(token),now()))
   return req
  def _send_zmh(self,a,id,request):
   from domain import now
-  outcome=protocol.send_test(request,enabled=True)
+  from urllib.parse import urlsplit
+  if urlsplit(request.full_url).path=='/api-test/v1/saveClue':
+   outcome=protocol.send_test(request,enabled=True)
+  else:
+   outcome=protocol.send_request(request,environment='PRODUCTION',enabled=True)
   with self.tx() as c:
    d=self.one(c,'deliveries',id,a);sub=c.execute('SELECT * FROM zmh_submissions WHERE id=?',(id,)).fetchone()
    c.execute('UPDATE zmh_submissions SET send_status=? WHERE id=?',(outcome['status'],id))
