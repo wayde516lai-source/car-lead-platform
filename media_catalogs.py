@@ -184,7 +184,7 @@ class MediaCatalogs:
             conn.close()
 
     def configure(self, actor: dict, media_id: str, kind: str, data: dict) -> dict:
-        """保存API及定时开关，Token加密且留空保留，版本冲突拒绝覆盖。"""
+        """保存API及每日自动同步开关，Token加密且留空保留，版本冲突拒绝覆盖。"""
         self.platform.require(actor, 'settings')
         endpoint = validated_endpoint(data.get('endpoint', ''))
         enabled, hour = data.get('enabled'), data.get('schedule_hour', 0)
@@ -228,10 +228,13 @@ class MediaCatalogs:
             self._media(conn, actor, media_id, kind)
             source = conn.execute('SELECT * FROM media_dictionary_sources WHERE org_id=? AND media_id=? AND kind=?',
                                   (actor['org_id'], media_id, kind)).fetchone()
-            if not source or not source['enabled']:
+            if not source:
                 if trigger == 'auto':
                     return None
-                raise Fault('CATALOG_SYNC_DISABLED', '请先保存并启用该媒体的字典API')
+                raise Fault('CATALOG_CONFIG_REQUIRED', '请先保存该媒体的字典API地址')
+            # enabled只控制每日自动任务，手动读取不应顺带开启每日同步。
+            if trigger == 'auto' and not source['enabled']:
+                return None
             conn.execute("""UPDATE media_dictionary_runs SET state='FAILED',finished_at=?,error='同步超时或中断'
                 WHERE org_id=? AND media_id=? AND kind=? AND state='RUNNING' AND started_at<?""",
                 (now(), actor['org_id'], media_id, kind, later(hours=-1)))
@@ -303,10 +306,11 @@ class MediaCatalogs:
             if not items or (kind == 'vehicles' and len(items) != expected_count):
                 raise SyncError('字典实际条数与API总量不一致，保留旧库')
             with self.platform.tx() as conn:
-                current = conn.execute('''SELECT s.version,s.enabled,r.state FROM media_dictionary_sources s
+                current = conn.execute('''SELECT s.version,s.enabled,r.state,r.trigger_kind FROM media_dictionary_sources s
                     JOIN media_dictionary_runs r ON r.org_id=s.org_id AND r.media_id=s.media_id AND r.kind=s.kind
                     WHERE r.id=? AND s.org_id=?''', (run_id, org)).fetchone()
-                if not current or not current['enabled'] or current['version'] != source['version'] or current['state'] != 'RUNNING':
+                if (not current or current['version'] != source['version'] or current['state'] != 'RUNNING'
+                        or (current['trigger_kind'] == 'auto' and not current['enabled'])):
                     raise SyncError('配置已变化，本轮同步不写入')
                 table = 'media_vehicle_items' if kind == 'vehicles' else 'media_city_items'
                 conn.execute('DELETE FROM ' + table + ' WHERE org_id=? AND media_id=?', (org, media_id))
@@ -324,7 +328,7 @@ class MediaCatalogs:
                     WHERE id=? AND org_id=? AND state='RUNNING'""", (now(), pages, message, run_id, org))
 
     def start(self, actor: dict, media_id: str, kind: str) -> dict:
-        """领取单个字典任务，后台读取API，不启动外部线索发送。"""
+        """领取单个手动任务，允许每日自动同步暂停，不开启定时任务或线索发送。"""
         self.platform.require(actor, 'settings')
         claim = self._claim(actor, media_id, kind, 'manual')
         threading.Thread(target=self._sync, args=claim, daemon=True).start()

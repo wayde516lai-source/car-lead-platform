@@ -66,6 +66,37 @@ class CatalogTests(unittest.TestCase):
         self.service.fetcher = lambda *args: next(replies)
         self.service._sync(*self.service._claim(A, media, kind, 'manual'))
 
+    def test_manual_sync_works_when_daily_sync_is_paused_without_enabling_it(self):
+        for kind in ('cities', 'vehicles'):
+            with self.subTest(kind=kind):
+                self.configure(kind=kind, enabled=False)
+                self.assertIsNone(self.service._claim(A, 'MEDIA_A', kind, 'auto'))
+                rows = [car()] if kind == 'vehicles' else [{'cityCode': 2501, 'cityName': '上海'}]
+                self.sync([page(rows)], kind)
+                self.assertEqual(self.service.list(A, 'MEDIA_A', kind)['total'], 1)
+                library = next(row for row in self.service.overview(A, kind) if row['id'] == 'MEDIA_A')
+                self.assertEqual(library['enabled'], 0)
+                self.assertEqual(library['runs'][0]['state'], 'SUCCESS')
+                self.assertEqual(library['runs'][0]['trigger_kind'], 'manual')
+                self.assertIsNone(self.service._claim(A, 'MEDIA_A', kind, 'auto'))
+
+    def test_missing_api_cannot_be_claimed_manually(self):
+        with self.assertRaisesRegex(Fault, 'CATALOG_CONFIG_REQUIRED'):
+            self.service._claim(A, 'MEDIA_A', 'cities', 'manual')
+
+    def test_paused_auto_run_does_not_replace_existing_dictionary(self):
+        self.configure(kind='cities')
+        self.sync([page([{'cityCode': 2501, 'cityName': '上海'}])], 'cities')
+        with business_clock('2031-01-01T00:00:00+00:00'):
+            claim = self.service._claim(A, 'MEDIA_A', 'cities', 'auto')
+        with self.p.tx() as conn:
+            conn.execute("UPDATE media_dictionary_sources SET enabled=0 WHERE kind='cities'")
+        self.service.fetcher = lambda *args: page([{'cityCode': 2701, 'cityName': '北京'}])
+        self.service._sync(*claim)
+        self.assertEqual(self.service.list(A, 'MEDIA_A', 'cities')['items'][0]['city_code'], '2501')
+        library = next(row for row in self.service.overview(A, 'cities') if row['id'] == 'MEDIA_A')
+        self.assertEqual(library['runs'][0]['state'], 'FAILED')
+
     def test_complete_paginated_snapshot_media_isolation_and_city_code(self):
         self.configure()
         self.configure(kind='cities')
@@ -271,6 +302,9 @@ class CatalogTests(unittest.TestCase):
 
 class CatalogDeliveryTests(unittest.TestCase):
     def setUp(self):
+        sending = patch.dict(os.environ, {'ZMH_ENABLE_TEST_PUSH': '1'})
+        sending.start()
+        self.addCleanup(sending.stop)
         self.fixture = fixtures.SyncedDemandTests()
         self.fixture.setUp()
         self.addCleanup(self.fixture.tearDown)

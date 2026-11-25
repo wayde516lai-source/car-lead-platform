@@ -95,3 +95,34 @@ fieldset[data-yc-config]{border:1px solid var(--line);border-radius:8px;padding:
     flex-shrink: 0;
   }
 }
+
+
+/* 两个字典栏目共用：标签同行，筛选控件等高并按底部对齐。 */
+.catalog-filter-form {
+  align-items: flex-end;
+  min-width: 0;
+}
+
+.catalog-filter-form input,
+.catalog-filter-form select,
+.catalog-filter-form > button {
+  height: 40px;
+  min-height: 40px;
+}
+
+@media (max-width: 700px) {
+  .catalog-filter-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .catalog-filter-form input,
+  .catalog-filter-form select {
+    width: 100%;
+  }
+
+  .catalog-filter-form > button {
+    justify-self: start;
+  }
+}
