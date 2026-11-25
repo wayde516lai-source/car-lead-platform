@@ -1,12 +1,13 @@
 """临时数据库及假字典传输，覆盖媒体隔离、完整快照及上报自动编码。"""
 import copy
+from contextlib import contextmanager
+from datetime import datetime
 import json
 import os
 import tempfile
 import unittest
 import threading
 import time
-from datetime import timedelta
 import urllib.request
 import urllib.error
 import server
@@ -14,13 +15,22 @@ from security import digest
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
-from domain import Fault, Platform, SH, parse
+from domain import Fault, Platform
 from media_catalogs import DEFAULT_ENDPOINTS, MediaCatalogs, validated_endpoint
 from media_catalog_matching import delivery_media_codes, resolve_media_codes
 from media_vehicles import normalize_yiche
 import test_synced_demands as fixtures
 
 A = fixtures.A
+
+
+@contextmanager
+def business_clock(value: str):
+    """冻结底层业务时钟，使now/later/北京时间day使用同一个时刻。"""
+    instant = datetime.fromisoformat(value)
+    with patch('domain.datetime', wraps=datetime) as clock:
+        clock.now.side_effect = lambda tz=None: instant.astimezone(tz) if tz else instant.replace(tzinfo=None)
+        yield
 
 
 def car(code=1, series=701, name='宝马X5'):
@@ -149,17 +159,27 @@ class CatalogTests(unittest.TestCase):
 
     def test_schedule_and_duplicate_claim(self):
         self.configure(schedule_hour=8)
-        clock = ['2026-11-24T23:00:00+00:00']
-        with patch('media_catalogs.now', side_effect=lambda: clock[0]), \
-                patch('media_catalogs.later',
-                      side_effect=lambda days=0, hours=0:
-                      (parse(clock[0]) + timedelta(days=days, hours=hours)).isoformat(timespec='seconds')), \
-                patch('media_catalogs.day',
-                      side_effect=lambda: parse(clock[0]).astimezone(SH).date().isoformat()):
+        with business_clock('2026-11-24T23:00:00+00:00'):
             self.assertIsNone(self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto'))
-            clock[0] = '2026-11-25T00:00:00+00:00'
+        with business_clock('2026-11-25T00:00:00+00:00'):
             self.assertIsNotNone(self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto'))
             self.assertIsNone(self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto'))
+
+    def test_running_claim_is_replaced_only_after_business_clock_timeout(self):
+        self.configure(schedule_hour=8)
+        with business_clock('2031-01-01T00:00:00+00:00'):
+            first = self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto')
+        with business_clock('2031-01-01T00:59:00+00:00'):
+            self.assertIsNone(self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto'))
+        with business_clock('2031-01-01T01:01:00+00:00'):
+            replacement = self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto')
+        self.assertIsNotNone(replacement)
+        self.assertNotEqual(first[0], replacement[0])
+        with self.p.connect() as conn:
+            first_run = conn.execute('SELECT state,sync_day FROM media_dictionary_runs WHERE id=?',
+                                     (first[0],)).fetchone()
+            self.assertEqual((first_run['state'], first_run['sync_day']), ('FAILED', '2031-01-01'))
+            self.assertEqual(conn.execute("SELECT count(*) FROM media_dictionary_runs WHERE state='RUNNING'").fetchone()[0], 1)
 
     def test_ambiguous_names_and_catalog_change_do_not_guess(self):
         with self.p.tx() as conn:
@@ -230,12 +250,11 @@ class CatalogTests(unittest.TestCase):
             conn.execute('DROP TABLE media_city_items')
             conn.execute('DROP TABLE media_dictionary_sources')
             conn.execute('DROP TABLE media_dictionary_runs')
-            conn.execute('DROP TABLE route_send_controls')
-            conn.execute('DELETE FROM schema_version WHERE version>=31')
+            conn.execute('DELETE FROM schema_version WHERE version=31')
         upgraded = Platform(self.p.root)
         with upgraded.connect() as conn:
             self.assertEqual(conn.execute('SELECT series_id FROM media_vehicle_items').fetchone()[0], 701)
-            self.assertEqual(conn.execute('SELECT max(version) FROM schema_version').fetchone()[0], 32)
+            self.assertEqual(conn.execute('SELECT max(version) FROM schema_version').fetchone()[0], 31)
             self.assertEqual(conn.execute('SELECT count(*) FROM media_city_items').fetchone()[0], 0)
 
     def test_migration_reopen_preserves_dictionary_and_old_records(self):
@@ -243,7 +262,7 @@ class CatalogTests(unittest.TestCase):
         self.sync([page([car()])])
         reopened = Platform(self.p.root)
         with reopened.connect() as conn:
-            self.assertEqual(conn.execute('SELECT count(*) FROM schema_version WHERE version=32').fetchone()[0], 1)
+            self.assertEqual(conn.execute('SELECT count(*) FROM schema_version WHERE version=31').fetchone()[0], 1)
             self.assertEqual(conn.execute('SELECT count(*) FROM media_vehicle_items').fetchone()[0], 1)
             self.assertEqual(conn.execute('SELECT count(*) FROM media_city_items').fetchone()[0], 0)
             self.assertEqual(conn.execute('PRAGMA foreign_key_check').fetchall(), [])
