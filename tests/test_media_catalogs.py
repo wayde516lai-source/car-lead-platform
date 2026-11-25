@@ -1,5 +1,7 @@
 """临时数据库及假字典传输，覆盖媒体隔离、完整快照及上报自动编码。"""
 import copy
+from contextlib import contextmanager
+from datetime import datetime
 import json
 import os
 import tempfile
@@ -20,6 +22,15 @@ from media_vehicles import normalize_yiche
 import test_synced_demands as fixtures
 
 A = fixtures.A
+
+
+@contextmanager
+def business_clock(value: str):
+    """冻结底层业务时钟，使now/later/北京时间day使用同一个时刻。"""
+    instant = datetime.fromisoformat(value)
+    with patch('domain.datetime', wraps=datetime) as clock:
+        clock.now.side_effect = lambda tz=None: instant.astimezone(tz) if tz else instant.replace(tzinfo=None)
+        yield
 
 
 def car(code=1, series=701, name='宝马X5'):
@@ -148,11 +159,27 @@ class CatalogTests(unittest.TestCase):
 
     def test_schedule_and_duplicate_claim(self):
         self.configure(schedule_hour=8)
-        with patch('media_catalogs.now', return_value='2026-11-24T23:00:00+00:00'):
+        with business_clock('2026-11-24T23:00:00+00:00'):
             self.assertIsNone(self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto'))
-        with patch('media_catalogs.now', return_value='2026-11-25T00:00:00+00:00'):
+        with business_clock('2026-11-25T00:00:00+00:00'):
             self.assertIsNotNone(self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto'))
             self.assertIsNone(self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto'))
+
+    def test_running_claim_is_replaced_only_after_business_clock_timeout(self):
+        self.configure(schedule_hour=8)
+        with business_clock('2031-01-01T00:00:00+00:00'):
+            first = self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto')
+        with business_clock('2031-01-01T00:59:00+00:00'):
+            self.assertIsNone(self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto'))
+        with business_clock('2031-01-01T01:01:00+00:00'):
+            replacement = self.service._claim(A, 'MEDIA_A', 'vehicles', 'auto')
+        self.assertIsNotNone(replacement)
+        self.assertNotEqual(first[0], replacement[0])
+        with self.p.connect() as conn:
+            first_run = conn.execute('SELECT state,sync_day FROM media_dictionary_runs WHERE id=?',
+                                     (first[0],)).fetchone()
+            self.assertEqual((first_run['state'], first_run['sync_day']), ('FAILED', '2031-01-01'))
+            self.assertEqual(conn.execute("SELECT count(*) FROM media_dictionary_runs WHERE state='RUNNING'").fetchone()[0], 1)
 
     def test_ambiguous_names_and_catalog_change_do_not_guess(self):
         with self.p.tx() as conn:
