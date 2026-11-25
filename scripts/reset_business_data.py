@@ -8,6 +8,7 @@ PRESERVED_TABLES = frozenset({
     'schema_version', 'users', 'settings', 'lead_field_permissions',
     'catalog', 'manual_vehicle_entries', 'media_vehicle_sources',
     'media_vehicle_items', 'media_vehicle_runs', 'yiche_code_overrides',
+    'media_dictionary_sources', 'media_city_items', 'media_dictionary_runs',
 })
 CLEARED_TABLES = frozenset({
     'agency_final_media', 'attempts', 'audit_log', 'auto_dispatch_bindings',

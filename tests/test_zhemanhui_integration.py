@@ -13,6 +13,8 @@ class ZmhIntegrationTests(unittest.TestCase):
    c.execute("UPDATE routes SET adapter_version='zhemanhui-v1' WHERE id='AGENCY_TO_A'")
    c.execute("UPDATE demands SET buyer_id='AGENCY_A',receiver_id='AGENCY_A',route_id='AGENCY_TO_A' WHERE id=?",(self.f.d['id'],))
    c.execute('INSERT INTO zmh_routes VALUES(?,?,?,1)',('AGENCY_TO_A','demo','https://saas.asoapple.cn'+CALLBACK_PATH))
+  from test_media_catalogs import add_library
+  with self.p.tx() as c:add_library(c,series=11433,city_name='保山')
   self.lid=self.f.lead()
   with self.p.tx() as c:
    l=self.p.one(c,'leads',self.lid,A)

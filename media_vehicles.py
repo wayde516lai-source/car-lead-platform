@@ -137,6 +137,8 @@ class MediaVehicles:
             self._partner(c, actor, media_id)
             existing = c.execute('SELECT * FROM media_vehicle_sources WHERE org_id=? AND media_id=?',
                                  (actor['org_id'], media_id)).fetchone()
+            if c.execute("SELECT 1 FROM media_dictionary_sources WHERE org_id=? AND media_id=? AND kind='vehicles'", (actor['org_id'], media_id)).fetchone():
+                raise Fault('VEHICLE_API_MANAGED', '该媒体已改用字典API管理，请在车型库API配置中修改')
             if not existing and media_id != 'MEDIA_A':
                 raise Fault('VEHICLE_ADAPTER_MISSING', '此媒体还未接入车型库接口')
             if not key and not existing:
