@@ -25,21 +25,21 @@ function createMediaCatalogUI(ui) {
     const params = new URLSearchParams({q: selection.q, page: selection.page, page_size: selection.size});
     const result = await api(`media-catalogs/${kind}/${encodeURIComponent(selected.id)}?${params}`);
     const latest = selected.runs[0];
-    const status = !selected.configured ? '待配置' : !selected.enabled ? '已暂停' :
+    const status = !selected.configured ? '待配置' :
       ({RUNNING: '同步中', SUCCESS: '同步成功', FAILED: '同步失败'})[latest?.state] || '等待同步';
     const buttons = has('settings') ? `<button data-action="catalog-config">API配置</button>
-      <button data-action="catalog-sync" class="primary" ${!selected.enabled || latest?.state === 'RUNNING' || selected.legacy ? 'disabled' : ''}>立即同步</button>` : '';
+      <button data-action="catalog-sync" class="primary" ${!selected.configured || latest?.state === 'RUNNING' || selected.legacy ? 'disabled' : ''}>立即同步</button>` : '';
     const headers = kind === 'vehicles' ? ['品牌', '厂商', '车系', '车系编号', '车款', '车款编号'] : ['省份', '城市', '城市编号', '省份编号'];
     const rows = result.items.map(row => (kind === 'vehicles' ?
       [row.brandName, row.factoryName, row.seriesName, row.seriesId, row.carName, row.carId] :
       [row.parent_name, row.city_name, row.city_code, row.parent_code]).map(esc));
     return intro + `<section class="card"><div class="toolbar">
-      <form class="filter-row" id="catalog-search-form" data-kind="${kind}">
+      <form class="filter-row catalog-filter-form" id="catalog-search-form" data-kind="${kind}">
         <label>媒体分类<select name="media" id="catalog-media">${libraries.map(row => opt(row.id, row.name, selected.id)).join('')}</select></label>
-        <input name="q" aria-label="搜索${titles[kind]}" placeholder="${kind === 'cities' ? '省份、城市或编码' : '品牌、厂商、车系或车款'}" value="${esc(selection.q)}">
+        <label>关键词<input name="q" aria-label="搜索${titles[kind]}" placeholder="${kind === 'cities' ? '省份、城市或编码' : '品牌、厂商、车系或车款'}" value="${esc(selection.q)}"></label>
         <button type="submit">搜索</button></form><div class="actions">${buttons}</div></div>
       <div class="toolbar"><span>${badge(status)} · 共 ${result.total} 条</span>
-        <span class="muted">最近成功 ${esc(fmt(selected.last_success))} · 每日北京时间 ${String(selected.schedule_hour).padStart(2, '0')}:00</span></div>
+        <span class="muted">最近成功 ${esc(fmt(selected.last_success))} · ${selected.enabled ? '每日自动同步 ' + String(selected.schedule_hour).padStart(2, '0') + ':00' : '每日自动同步已暂停（仍可手动同步）'}</span></div>
       ${selected.legacy ? '<div class="callout">当前保留旧签名车型库。保存新API配置后将切换同步来源，已有车型保留到新API完整同步成功。</div>' : ''}
       ${latest?.error ? `<div class="callout error" role="alert">${esc(latest.error)}</div>` : ''}
       ${!selected.configured ? '<div class="callout">该媒体尚未配置API，保持空库，不会使用其他媒体编号补齐。</div>' : ''}
@@ -72,9 +72,9 @@ function createMediaCatalogUI(ui) {
         <label class="span2">字典API地址<input type="url" name="endpoint" value="${esc(library.endpoint || (isYiche ? defaults[activeKind] : ''))}" placeholder="填写该媒体提供的字典API" required></label>
         <label>Bearer Token（无鉴权可留空）<input name="token" type="password" autocomplete="new-password" placeholder="${library.has_token ? '已保存，留空保留' : '未配置'}"></label>
         <label>清除已保存Token<select name="clear_token">${opt('no', '不清除')}${opt('yes', '清除')}</select></label>
-        <label>同步状态<select name="enabled">${opt('no', '暂停', library.enabled ? 'yes' : 'no')}${opt('yes', '启用', library.enabled ? 'yes' : 'no')}</select></label>
+        <label>每日自动同步<select name="enabled">${opt('no', '暂停（仍可手动同步）', library.enabled ? 'yes' : 'no')}${opt('yes', '启用', library.enabled ? 'yes' : 'no')}</select></label>
         <label>每天北京时间<select name="schedule_hour">${Array.from({length: 24}, (_, hour) => opt(String(hour), String(hour).padStart(2, '0') + ':00', String(library.schedule_hour))).join('')}</select></label>
-        <p class="smalltext muted span2">易车当前两个API无需Token。配置和字典读取不会开启线索发送；保存后可点击“立即同步”。</p>
+        <p class="smalltext muted span2">易车当前两个API无需Token。保存API后即可点击“立即同步”，无需启用每日自动同步。字典读取不会开启线索发送。</p>
         <div class="form-actions span2"><button type="button" data-action="close-modal">取消</button><button type="submit" class="primary">保存配置</button></div></form>`);
     }
   }

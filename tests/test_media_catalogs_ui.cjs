@@ -27,7 +27,23 @@ const app = context.createMediaCatalogUI({
   assert(html.includes('城市库管理'));
   assert(html.includes('媒体分类'));
   assert(html.includes('百度有驾'));
+  assert(/data-action="catalog-sync"[^>]*disabled/.test(html));
+  libraries[0].configured = true;
+  libraries[0].runs = [{state: 'SUCCESS', trigger_kind: 'manual'}];
+  for (const kind of ['cities', 'vehicles']) {
+    const rendered = await app.view(kind);
+    assert(!/data-action="catalog-sync"[^>]*disabled/.test(rendered));
+    assert(rendered.includes('每日自动同步已暂停'));
+    assert(rendered.includes('同步成功'));
+    assert(rendered.includes('catalog-filter-form'));
+    await app.action('catalog-sync');
+    assert(calls.some(row => row.route === `media-catalogs/${kind}/yiche/sync` && row.method === 'POST'));
+  }
+  assert(!calls.some(row => row.method === 'PATCH'));
+  await app.view('cities');
   await app.action('catalog-config');
+  assert(modalBody.includes('每日自动同步'));
+  assert(modalBody.includes('暂停（仍可手动同步）'));
   assert(modalBody.includes('/api/v1/pullCityList'));
   assert(modalBody.includes('name="token" type="password"'));
   failSave = true;
