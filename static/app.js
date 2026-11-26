@@ -303,8 +303,14 @@ function yicheCodeForm(action,index){
 function yicheCodeLabel(d){
  return d.yiche_code?`<span class="sub">回调 Code ${esc(d.yiche_code.code)} · ${esc(d.yiche_code.description)}</span>`:'';
 }
-function deliveryTable(rows){return table(['线索 / 需求','最终媒体与路径','分发方式 / 规则版本','上报状态','媒体入库','线索状态','回调完整性','操作'],rows.map(d=>[`<span class="name-primary">${esc(d.lead_no)}</span><span class="sub mono">${esc(d.demand_no||'—')}</span>`,`${esc(partner(d.media_id))}<span class="sub">${d.receiver_id===d.media_id?'直连':'经 '+esc(partner(d.receiver_id))}</span>`,`${d.dispatch_mode==='AUTO'?'自动分发':'手动分发'}<span class="sub">规则 ${d.rule_version?'v'+d.rule_version:'历史记录'}</span>`,badge(d.send_status),badge(d.storage_status),badge(d.validity_status)+yicheCodeLabel(d),badge(d.callback_status),`<button class="link" data-action="delivery-detail" data-id="${d.id}">完整链路 →</button>${has('write')&&d.sale_project==='UNKNOWN'&&d.first_sent_at?`<button class="link" data-action="delivery-project" data-id="${esc(d.id)}">补录项目</button>`:''}`]))}
-async function deliveries(){const d=await list('deliveries');return heading('DELIVERY TRACKING / 分发记录','看清来源，也看清每一站去向','上报状态、媒体入库和线索状态独立展示；无效原因按回调 Code 码解释。',`<button data-action="refresh">↻ 刷新</button>${has('dispatch')?'<button class="primary" data-action="run-worker">执行待发送任务</button>':''}`)+`<section class="card">${filters(['QUEUED','ACKED','UNKNOWN','CANCELED'],mediaFilter())}${deliveryTable(d.items)}${pagination(d)}</section>`}
+function deliveryStatusLabel(d){
+ if(d.validity_status!=='INVALID')return badge(d.validity_status);
+ const description=d.yiche_code?.description?.trim();
+ const reason=!description||/^(未配置失败原因|未收录)/.test(description)?'无效（原因未配置）':description;
+ return `<span class="badge red">${esc(reason)}</span>`;
+}
+function deliveryTable(rows){return table(['线索 / 需求','最终媒体与路径','分发方式 / 规则版本','上报状态','媒体入库','线索状态','回调完整性','操作'],rows.map(d=>[`<span class="name-primary">${esc(d.lead_no)}</span><span class="sub mono">${esc(d.demand_no||'—')}</span>`,`${esc(partner(d.media_id))}<span class="sub">${d.receiver_id===d.media_id?'直连':'经 '+esc(partner(d.receiver_id))}</span>`,`${d.dispatch_mode==='AUTO'?'自动分发':'手动分发'}<span class="sub">规则 ${d.rule_version?'v'+d.rule_version:'历史记录'}</span>`,badge(d.send_status),badge(d.storage_status),deliveryStatusLabel(d),badge(d.callback_status),`<button class="link" data-action="delivery-detail" data-id="${d.id}">完整链路 →</button>${has('write')&&d.sale_project==='UNKNOWN'&&d.first_sent_at?`<button class="link" data-action="delivery-project" data-id="${esc(d.id)}">补录项目</button>`:''}`]))}
+async function deliveries(){const d=await list('deliveries');return heading('DELIVERY TRACKING / 分发记录','看清来源，也看清每一站去向','上报状态、媒体入库和线索状态独立展示；无效原因按回调 Code 码解释。',`<button data-action="refresh">↻ 刷新</button>${has('dispatch')?'<button class="primary" data-action="run-worker">执行待发送任务</button>':''}`)+`<section class="card">${filters(['QUEUED','ACKED','UNKNOWN','CANCELED'],mediaFilter(),'搜索编号、记录或完整手机号')}${deliveryTable(d.items)}${pagination(d)}</section>`}
 async function imports(){
  const [data,entryOptions]=await Promise.all([list('imports'),api('lead-entry-options')]);
  return heading('IMPORT CENTER / 表格导入','表格导入线索','支持 Excel 和 CSV，预检通过后即可入库分发。',

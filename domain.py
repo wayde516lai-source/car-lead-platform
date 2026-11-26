@@ -1300,6 +1300,16 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
       LEFT JOIN channels ch ON ch.id=l.channel_id AND ch.org_id=l.org_id
       LEFT JOIN partners p ON p.id=ch.source_partner_id AND p.org_id=l.org_id
       WHERE l.org_id=? ORDER BY l.created_at DESC,l.id DESC""",(a['org_id'],))]
+ def _delivery_phone_lead_ids(self,c,a,query):
+  """完整手机号按本组织HMAC精确查询；无手机号字段权限时不返回命中。"""
+  phone=unicodedata.normalize('NFKC',query).replace(' ','').replace('-','')
+  if phone.startswith('+86'):phone=phone[3:]
+  if not re.fullmatch(r'1[3-9][0-9]{9}',phone):return None
+  fields=self._lead_field_override(c,a)
+  if fields is not None and 'phone' not in fields:return set()
+  fingerprint=self.vault.fingerprint(a['org_id'],'+86'+phone)
+  return {row['id'] for row in c.execute('SELECT id FROM leads WHERE org_id=? AND phone_hmac=?',(a['org_id'],fingerprint))}
+
  def list(self,a,table,page_size=20,page=1,q='',status='',channel='',media='',lead_filters=None):
   self.require(a,'read')
   if table=='audit_log':self.require(a,'settings')
@@ -1315,7 +1325,10 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    if status:rows=[r for r in rows if r.get('status',r.get('send_status'))==status]
    if channel:rows=[r for r in rows if r.get('channel_id')==channel]
    if media:rows=[r for r in rows if r.get('media_id')==media]
-   if q:rows=[r for r in rows if q.lower() in canonical({k:v for k,v in r.items() if 'cipher' not in k and 'hmac' not in k and 'snapshot' not in k}).lower()]
+   if q:
+    phone_leads=self._delivery_phone_lead_ids(c,a,q) if table=='deliveries' else None
+    if phone_leads is not None:rows=[row for row in rows if row['lead_id'] in phone_leads]
+    else:rows=[r for r in rows if q.lower() in canonical({k:v for k,v in r.items() if 'cipher' not in k and 'hmac' not in k and 'snapshot' not in k}).lower()]
    total=len(rows);rows=rows[(max(1,page)-1)*page_size:max(1,page)*page_size]
    items=[self._public(c,a,table,r) for r in rows];return {'items':items,'total':total,'page':page,'page_size':page_size,'has_more':page*page_size<total}
   finally:c.close()
