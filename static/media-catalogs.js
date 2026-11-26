@@ -10,6 +10,16 @@ function createMediaCatalogUI(ui) {
     vehicles: 'http://yiche.asoapple.cn/api/v1/pullCarList',
     cities: 'http://yiche.asoapple.cn/api/v1/pullCityList'
   };
+  // 字段顺序对应pullCarList文档；名称、业务编号与接口行id分别展示。
+  const vehicleColumns = [
+    ['id', '记录ID'], ['carId', '车款编号'], ['carName', '车款名称'],
+    ['seriesId', '车系编号'], ['seriesName', '车系名称'],
+    ['factoryId', '厂商编号'], ['factoryName', '厂商名称'],
+    ['brandId', '品牌编号'], ['brandName', '品牌名称'],
+    ['year', '年款'], ['guidePrice', '指导价'], ['displacement', '排量'],
+    ['power', '功率'], ['gearbox', '变速箱'], ['saleStatus', '售卖状态（原值）'],
+    ['memberBrandName', '会员品牌名称']
+  ];
   let activeKind = 'vehicles';
 
   async function view(kind) {
@@ -29,9 +39,10 @@ function createMediaCatalogUI(ui) {
       ({RUNNING: '同步中', SUCCESS: '同步成功', FAILED: '同步失败'})[latest?.state] || '等待同步';
     const buttons = has('settings') ? `<button data-action="catalog-config">API配置</button>
       <button data-action="catalog-sync" class="primary" ${!selected.configured || latest?.state === 'RUNNING' || selected.legacy ? 'disabled' : ''}>立即同步</button>` : '';
-    const headers = kind === 'vehicles' ? ['品牌', '厂商', '车系', '车系编号', '车款', '车款编号'] : ['省份', '城市', '城市编号', '省份编号'];
+    const headers = kind === 'vehicles' ? vehicleColumns.map(([key, label]) =>
+      `${label}<span class="muted tiny catalog-field-key">${key}</span>`) : ['省份', '城市', '城市编号', '省份编号'];
     const rows = result.items.map(row => (kind === 'vehicles' ?
-      [row.brandName, row.factoryName, row.seriesName, row.seriesId, row.carName, row.carId] :
+      vehicleColumns.map(([key]) => row[key] ?? '—') :
       [row.parent_name, row.city_name, row.city_code, row.parent_code]).map(esc));
     return intro + `<section class="card"><div class="toolbar">
       <form class="filter-row catalog-filter-form" id="catalog-search-form" data-kind="${kind}">
@@ -43,7 +54,8 @@ function createMediaCatalogUI(ui) {
       ${selected.legacy ? '<div class="callout">当前保留旧签名车型库。保存新API配置后将切换同步来源，已有车型保留到新API完整同步成功。</div>' : ''}
       ${latest?.error ? `<div class="callout error" role="alert">${esc(latest.error)}</div>` : ''}
       ${!selected.configured ? '<div class="callout">该媒体尚未配置API，保持空库，不会使用其他媒体编号补齐。</div>' : ''}
-      ${table(headers, rows)}
+      ${kind === 'vehicles' ? '<p class="smalltext muted catalog-field-note">按接口原字段展示，可横向滚动查看全部字段。品牌名称可能是“212”等数字；记录ID、品牌编号、车系编号与车款编号不能互相替代。售卖状态保留接口原值，缺失字段显示“—”。</p>' : ''}
+      <div class="${kind === 'vehicles' ? 'catalog-vehicle-table' : ''}">${table(headers, rows)}</div>
       <div class="pagination"><span>共 ${result.total} 条</span><div class="pager"><select id="catalog-size" aria-label="每页条数">${[20, 50, 100].map(size => opt(String(size), size + ' 条', String(selection.size))).join('')}</select>
         <button data-action="catalog-prev" ${selection.page <= 1 ? 'disabled' : ''}>‹</button>
         <span>第 ${selection.page} / ${Math.max(1, Math.ceil(result.total / selection.size))} 页</span>

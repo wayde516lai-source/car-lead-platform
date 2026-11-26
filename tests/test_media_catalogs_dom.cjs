@@ -53,6 +53,17 @@ function submit(selector) {$(selector).dispatchEvent(new w.Event('submit', {bubb
   $('#catalog-media').value = 'MEDIA_A';
   $('#catalog-media').dispatchEvent(new w.Event('change', {bubbles: true}));
   await wait(() => $('#main table')?.textContent.includes('701'), 'vehicle code');
+  const vehicleHeaders = [...w.document.querySelectorAll('.catalog-vehicle-table th')];
+  const vehicleCells = [...w.document.querySelectorAll('.catalog-vehicle-table tbody tr:first-child td')];
+  assert.equal(vehicleHeaders.length, 16);
+  assert(vehicleHeaders[0].textContent.includes('id'));
+  assert(vehicleHeaders[15].textContent.includes('memberBrandName'));
+  assert.equal(vehicleCells[0].textContent, '99');
+  assert.equal(vehicleCells[9].textContent, '2026');
+  assert.equal(vehicleCells[10].textContent, '13.50');
+  assert.equal(vehicleCells[11].textContent, '—');
+  assert.equal(vehicleCells[14].textContent, '0');
+  assert.equal(vehicleCells[15].textContent, '测试会员品牌');
   $('#catalog-media').value = 'MEDIA_B';
   $('#catalog-media').dispatchEvent(new w.Event('change', {bubbles: true}));
   await wait(() => $('#main').textContent.includes('该媒体尚未配置API'), 'empty other media');

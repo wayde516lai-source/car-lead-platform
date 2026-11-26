@@ -126,3 +126,28 @@ fieldset[data-yc-config]{border:1px solid var(--line);border-radius:8px;padding:
     justify-self: start;
   }
 }
+
+
+.catalog-field-key {
+  display: block;
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+.catalog-field-note {
+  padding: 12px 20px;
+}
+
+.catalog-vehicle-table {
+  min-width: 0;
+}
+
+.catalog-vehicle-table table {
+  min-width: 2400px;
+}
+
+/* 字典搜索按控件底部对齐，标签高度不再撑高输入框和按钮。 */
+#catalog-search-form{align-items:flex-end}
+#catalog-search-form>input,#catalog-search-form>button,#catalog-search-form>label>select{height:40px;box-sizing:border-box}
+/* 空状态随可见内容宽度换行，不随宽表格横向滚动。 */
+.table-empty{white-space:normal;overflow-wrap:anywhere}

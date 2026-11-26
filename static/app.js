@@ -26,7 +26,11 @@ function demandExcelFeedback(container, message, isError = false) {
   if (isError) feedback.focus({preventScroll: true});
 }
 async function api(path,method='GET',body,headers={}){const r=await fetch('/api/v1/'+path,{method,headers:{'Content-Type':'application/json','X-CSRF-Token':state.user?.csrf||'',...headers},body:body===undefined?undefined:JSON.stringify(body)});const j=await r.json();if(!r.ok){const e=new Error(j.message+'（'+j.code+'）');e.status=r.status;throw e}return j.data}
-function table(headers,rows,empty='暂无记录'){return `<div class="table-wrap"><table><thead><tr>${headers.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.map(x=>`<tr>${x.map(c=>`<td>${c}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${headers.length}" class="empty">${esc(empty)}</td></tr>`}</tbody></table></div>`}
+// 空状态放在横向滚动容器外，避免在超宽表格中居中后被窄窗口裁掉。
+function table(headers,rows,empty='暂无记录'){
+ const body=rows.map(row=>`<tr>${row.map(cell=>`<td>${cell}</td>`).join('')}</tr>`).join('');
+ return `<div class="table-wrap"><table><thead><tr>${headers.map(header=>`<th>${header}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>${rows.length?'':`<div class="empty table-empty" role="status">${esc(empty)}</div>`}`;
+}
 function pagination(d){return `<div class="pagination"><span>共 ${d.total} 条记录</span><div class="pager"><span>每页</span><select id="page-size" aria-label="每页条数">${[20,50,100].map(x=>opt(String(x),x+' 条',String(state.size))).join('')}</select><button data-action="prev" ${state.page<=1?'disabled':''}>‹</button><span>第 ${state.page} / ${Math.max(1,Math.ceil(d.total/state.size))} 页</span><button data-action="next" ${!d.has_more?'disabled':''}>›</button></div></div>`}
 function filters(statuses=[],extra='',placeholder='搜索编号、车型或记录'){return `<div class="toolbar"><form id="search-form" class="filter-row"><input id="search" placeholder="${esc(placeholder)}" value="${esc(state.q)}" aria-label="搜索">${statuses.length?`<select id="status-filter" aria-label="状态筛选"><option value="">全部状态</option>${statuses.map(x=>opt(x,({WAITING:'未开始',MIXED:'无执行中需求'})[x]||labels[x]||x,state.status)).join('')}</select>`:''}${extra}<button type="submit">筛选</button><button type="button" data-action="clear-filters">重置</button></form><span class="tiny muted">数据实时保存 · 上海时间</span></div>`}
 const mediaFilter=()=>`<select id="media-filter" aria-label="媒体筛选"><option value="">全部媒体</option>${state.catalog.partners.filter(x=>x.role==='MEDIA').map(x=>opt(x.id,x.name,state.media)).join('')}</select>`;
