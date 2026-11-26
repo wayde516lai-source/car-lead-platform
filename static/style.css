@@ -151,3 +151,14 @@ fieldset[data-yc-config]{border:1px solid var(--line);border-radius:8px;padding:
 #catalog-search-form>input,#catalog-search-form>button,#catalog-search-form>label>select{height:40px;box-sizing:border-box}
 /* 空状态随可见内容宽度换行，不随宽表格横向滚动。 */
 .table-empty{white-space:normal;overflow-wrap:anywhere}
+
+/* 每项需求只画一根柱，多个车型和城市保留在同一标签中。 */
+.demand-ranking{list-style:none;margin:0;padding:0;display:grid;gap:18px}
+.demand-ranking-row{display:grid;grid-template-columns:minmax(220px,1fr) minmax(100px,1.4fr) 78px;gap:18px;align-items:center}
+.demand-ranking-label{min-width:0;overflow-wrap:anywhere}
+.demand-ranking-label strong{font-size:14px}
+.demand-ranking-track{height:24px;border-radius:5px;background:var(--bg,#f3f7f4);overflow:hidden}
+.demand-ranking-track span{display:block;height:100%;background:#648d71;border-radius:5px}
+.demand-ranking-quantity{text-align:right;font-variant-numeric:tabular-nums}
+.demand-ranking-quantity small{display:block;font-size:11px;font-weight:400;color:#718078}
+@media(max-width:700px){.demand-ranking-row{grid-template-columns:minmax(0,1fr) 64px;gap:8px}.demand-ranking-label{grid-column:1/-1}.demand-ranking-track{height:20px}}

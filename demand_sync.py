@@ -5,7 +5,7 @@ from datetime import timedelta
 from contextlib import nullcontext
 from domain import Fault,now,later,parse,uid
 from security import canonical,digest
-from demand_statistics import summarize_order_quantities
+from demand_statistics import summarize_order_quantities, demand_has_ended, execution_days
 from project_availability import SOURCE_PROJECT_AVAILABLE_SQL
 from qq_sheet import QQSheetError,read_qq_sheet,sheet_url
 from ka_demand_api import DemandProtocolError,read_demands
@@ -205,9 +205,17 @@ class DemandSync:
   try:
    sources={r['id']:dict(r) for r in c.execute('SELECT s.* FROM demand_sync_sources s WHERE s.org_id=? AND s.replaced_by IS NULL AND s.deleted_at IS NULL AND '+SOURCE_PROJECT_AVAILABLE_SQL+' ORDER BY s.created_at,s.id',(a['org_id'],))}
    headers=list(dict.fromkeys(h for source in sources.values() for h in json.loads(source['headers'])))
-   rows=[]
-   for r in c.execute("SELECT p.*,s.partner_id,s.sale_project,s.quantity_basis,s.source_kind,s.name AS source_name,d.id AS demand_id,d.status AS demand_status,d.sync_state AS demand_sync_state FROM demand_sync_projects p JOIN demand_sync_sources s ON s.id=p.source_id LEFT JOIN demands d ON d.external_project_id=p.id WHERE p.org_id=? AND s.org_id=? AND s.replaced_by IS NULL AND s.deleted_at IS NULL AND p.is_present=1 AND "+SOURCE_PROJECT_AVAILABLE_SQL+" ORDER BY s.created_at,s.id,p.row_number,p.id",(a['org_id'],a['org_id'])):
-    row=dict(r);row['values']=json.loads(row.pop('values_json'));api_values=json.loads(row.pop('raw_json')) if row['source_kind']=='API_KA' else None;row.pop('raw_json',None);row['api_vehicles']=api_values['vehicles'] if api_values else [];row.pop('content_hash');row['match_status']='UNCONFIGURED' if row['mapping_error'] or not row['demand_id'] else row['demand_status'];row['regions']=split_values(row['values'].get('城市&地区') or row['values'].get('城市'));row['models']=['全系' if v in ('全车型','全系') else v for v in split_values(row['values'].get('车型'))];rows.append(row)
+   rows=[];at=now()
+   for r in c.execute("SELECT p.*,s.partner_id,s.sale_project,s.quantity_basis,s.source_kind,s.name AS source_name,d.id AS demand_id,d.status AS demand_status,d.sync_state AS demand_sync_state,d.start_at AS demand_start_at,d.end_at AS demand_end_at FROM demand_sync_projects p JOIN demand_sync_sources s ON s.id=p.source_id LEFT JOIN demands d ON d.external_project_id=p.id WHERE p.org_id=? AND s.org_id=? AND s.replaced_by IS NULL AND s.deleted_at IS NULL AND p.is_present=1 AND "+SOURCE_PROJECT_AVAILABLE_SQL+" ORDER BY s.created_at,s.id,p.row_number,p.id",(a['org_id'],a['org_id'])):
+    row=dict(r);row['values']=json.loads(row.pop('values_json'));api_values=json.loads(row.pop('raw_json')) if row['source_kind']=='API_KA' else None;row.pop('raw_json',None);row['api_vehicles']=api_values['vehicles'] if api_values else [];row.pop('content_hash');row['match_status']='UNCONFIGURED' if row['mapping_error'] or not row['demand_id'] else row['demand_status'];row['regions']=split_values(row['values'].get('城市&地区') or row['values'].get('城市'));row['models']=['全系' if v in ('全车型','全系') else v for v in split_values(row['values'].get('车型'))]
+    from synced_demands import source_time,source_execution_ended
+    try:end=row['demand_end_at'] or source_time(row['values'].get('结束时间（渠道编辑）') or row['values'].get('结束时间'),True)
+    except ValueError:end=None
+    if source_execution_ended(row['values']) or demand_has_ended({'status':row['demand_status'],'sync_state':row['demand_sync_state'],'end_at':end},at):continue
+    try:start=row['demand_start_at'] or source_time(row['values'].get('开始时间') or row['values'].get('下单日期'))
+    except ValueError:start=None
+    row['execution_days']=execution_days(start,at)
+    rows.append(row)
     row['order_quantity']=source_order_quantity(row['values'],row['demand_sync_state'])
    def matches(row,skip=None):
     value=row['values']
