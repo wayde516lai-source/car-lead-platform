@@ -64,5 +64,6 @@ jobs:
         run: |
           node tests/test_demand_source_deletion_ui.cjs
           node tests/test_media_catalogs_ui.cjs
+          node tests/test_delivery_status_ui.cjs
       - name: Check patch formatting
         run: git diff --check HEAD^ HEAD

@@ -1,6 +1,6 @@
 """从最终媒体字典唯一解析城市和车系，不使用乙方私有映射或其他媒体编号。
 
-业务需求筛选仍使用共享品牌车型地区规则。这里负责可发送性及上报编码，
+业务需求使用共享车型名称及地区规则。这里负责可发送性及上报编码，
 不修改线索原始信息，也不把需求的“全系/全国”当成客户实际意向。
 """
 import json
@@ -17,12 +17,19 @@ def requires_media_catalogs(conn, org_id: str, route: dict, *, strict=False) -> 
     ).fetchone())
 
 
-def resolve_media_codes(conn, org_id: str, media_id: str, lead: dict, context=None) -> dict:
-    """在当前组织最终媒体库匹配唯一车系/厂商及城市，缺失和歧义抛业务错误。
+def required_vehicle_fields(adapter_version):
+    """按已实现协议列出车型必填编码，软米会员只上报车系，易车直连还需厂商。"""
+    if adapter_version == 'zhemanhui-v1':
+        return ('series_id',)
+    return ('series_id', 'factory_id')
 
-    品牌及厂商都可作为车系限定，多个车款共用同一车系编号不会产生歧义。
-    只用名称的规范化精确比较，不模糊猜测别名，不从别家媒体补编号。
-    context只用于当前匹配调用的只读缓存，创建和发送分别重新校验。
+
+def resolve_media_codes(conn, org_id: str, media_id: str, lead: dict, context=None, *, adapter_version=None) -> dict:
+    """由车型在目标媒体库解析协议所需编码；必填编码歧义时不猜测。
+
+    品牌和厂商取自媒体库，名称不一致不再阻止唯一车型匹配。
+    同名车型的协议必填编号不唯一时拒绝创建，不再以原品牌/厂商名称筛选。
+    context只缓存当前调用读取的字典，发送前另行重验。
     """
     media = conn.execute("SELECT 1 FROM partners WHERE org_id=? AND id=? AND role='MEDIA'",
                          (org_id, media_id)).fetchone()
@@ -47,10 +54,10 @@ def resolve_media_codes(conn, org_id: str, media_id: str, lead: dict, context=No
                                                   (org_id, media_id))]
         vehicle_index, city_index = {}, {}
         for row in vehicles:
-            for brand_label in (row['brand_name'], row['factory_name']):
-                for model_label in (row['series_name'], row['car_name']):
-                    match_key = (norm(brand_label), model_name(model_label, brand_label))
-                    vehicle_index.setdefault(match_key, {})[(row['series_id'], row['factory_id'], row['brand_id'])] = row
+            for model_label in (row['series_name'], row['car_name']):
+                for brand_label in ('', row['brand_name'], row['factory_name']):
+                    match_key = model_name(model_label, brand_label)
+                    vehicle_index.setdefault(match_key, {})[row['car_id']] = row
         for row in cities:
             for label in (row['city_name'], row['parent_name'] + row['city_name']):
                 city_index.setdefault(city_name(label), {})[row['city_code']] = row
@@ -60,13 +67,21 @@ def resolve_media_codes(conn, org_id: str, media_id: str, lead: dict, context=No
         raise Fault('MEDIA_VEHICLE_MISSING', '该最终媒体车型库为空，请先同步')
     if not city_index:
         raise Fault('MEDIA_CITY_MISSING', '该最终媒体城市库为空，请先同步')
-    brand, model = norm(local['brand_name']), model_name(local['series_name'], local['brand_name'])
-    candidates = vehicle_index.get((brand, model), {})
+    model = model_name(local['series_name'], local['brand_name'])
+    candidates = list(vehicle_index.get(model, {}).values())
     if not candidates:
         raise Fault('MEDIA_VEHICLE_UNMATCHED', '客户车型在该最终媒体车型库中未找到')
-    if len(candidates) != 1:
+    fields = required_vehicle_fields(adapter_version)
+    signatures = lambda rows: {tuple(str(row[field]) for field in fields) for row in rows}
+    if len(signatures(candidates)) != 1:
         raise Fault('MEDIA_VEHICLE_AMBIGUOUS', '该媒体存在同名车系，请核对厂商与车型')
-    vehicle = next(iter(candidates.values()))
+    vehicle = candidates[0].copy()
+    # 非必填编码有多个值时留空，不把任意车款的厂商/品牌当成确定映射。
+    for field in ('factory_id', 'brand_id', 'factory_name', 'brand_name'):
+        if len({str(row[field]) for row in candidates}) > 1:
+            vehicle[field] = ''
+    if any(not str(vehicle[field]).strip() for field in fields):
+        raise Fault('MEDIA_VEHICLE_UNMATCHED', '媒体车型缺少当前接口必填编号')
     target_city = city_name(lead['city_code'])
     matched_cities = city_index.get(target_city, {})
     if not matched_cities:
@@ -76,7 +91,8 @@ def resolve_media_codes(conn, org_id: str, media_id: str, lead: dict, context=No
     city = next(iter(matched_cities.values()))
     return {'media_id': media_id, 'city_id': city['city_code'], 'city_name': city['city_name'],
             'series_id': vehicle['series_id'], 'series_name': vehicle['series_name'],
-            'factory_id': vehicle['factory_id'], 'brand_id': vehicle['brand_id']}
+            'factory_id': vehicle['factory_id'], 'brand_id': vehicle['brand_id'],
+            'factory_name': vehicle['factory_name'], 'brand_name': vehicle['brand_name']}
 
 
 def delivery_media_codes(conn, org_id: str, delivery: dict, lead: dict, payload: dict) -> dict:
@@ -85,10 +101,10 @@ def delivery_media_codes(conn, org_id: str, delivery: dict, lead: dict, payload:
     media_id = snapshot['media_id']
     if media_id != delivery['media_id']:
         raise Fault('MEDIA_CATALOG_CHANGED', '交付最终媒体与快照不一致')
-    resolved = resolve_media_codes(conn, org_id, media_id, lead)
+    resolved = resolve_media_codes(conn, org_id, media_id, lead, adapter_version=snapshot.get('adapter_version'))
     previous = payload.get('media_dictionary')
-    if previous and any(str(previous.get(key)) != str(resolved[key]) for key in (
-            'media_id', 'city_id', 'series_id', 'factory_id', 'brand_id')):
+    if previous and any(str(previous.get(key)) != str(resolved[key]) for key in
+            ('media_id', 'city_id') + required_vehicle_fields(snapshot.get('adapter_version'))):
         raise Fault('MEDIA_CATALOG_CHANGED', '媒体字典编号已变化，请重新预览创建分发')
     return resolved
 
