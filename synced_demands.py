@@ -6,7 +6,9 @@ def norm(value):return re.sub(r'[\s\-·（）()]+','',unicodedata.normalize('NFK
 def split_values(value):return list(dict.fromkeys(v.strip() for v in re.split(r'[,，、;；\n\r/／|｜]+',str(value or '')) if v.strip()))
 def city_name(value):return norm({'310100':'上海市','110100':'北京市'}.get(str(value),str(value))).removesuffix('市')
 def model_name(value,brand):
- value=norm(value);brand=norm(brand)
+ # 车型中的字母和数字属于型号，符号与空格不参与比较。
+ value=''.join(ch for ch in unicodedata.normalize('NFKC',str(value)).casefold() if ch.isalnum())
+ brand=''.join(ch for ch in unicodedata.normalize('NFKC',str(brand)).casefold() if ch.isalnum())
  return value[len(brand):] if brand and value.startswith(brand) else value
 
 def source_execution_ended(values: dict) -> bool:
@@ -57,29 +59,10 @@ class SyncedDemandsMixin:
    d.update(self.demand_progress(d))
   return d
  def _synced_vehicle_region_block(self,c,a,l,d,context=None):
+  """同步需求按共享车型名称匹配，实际分发仍限制需求指定地区。"""
   if not d['all_regions'] and city_name(l['city_code']) not in {city_name(v) for v in json.loads(d['match_regions'])}:return 'CITY_MISMATCH'
-  vehicles=context.setdefault('vehicles',{}) if context is not None else {}
-  if l['series_id'] not in vehicles:vehicles[l['series_id']]=c.execute('SELECT * FROM catalog WHERE series_id=?',(l['series_id'],)).fetchone()
-  v=vehicles[l['series_id']]
-  if not v:return 'MODEL_MISMATCH'
-  if d.get('api_submit_limit') is not None:
-   allowed=json.loads(d['api_vehicles'])
-   # 保留品牌与车型配对，不能把不同品牌的车型做笛卡尔组合。
-   return None if any(norm(v['brand_name']) in (norm(x['brand']),norm(x['make'])) and (norm(v['series_name'])=='全系' or model_name(v['series_name'],v['brand_name'])==model_name(x['model'],x['brand'])) for x in allowed) else 'MODEL_MISMATCH'
-  brand_ok=norm(v['brand_name'])==norm(d['match_brand'])
-  if not brand_ok:
-   # A factory-specific brand may only match models that actually belong to it.
-   factories=context.setdefault('factories',{}) if context is not None else {}
-   key=(a['org_id'],d['media_id'],l['series_id'])
-   if key not in factories:
-    library=c.execute('SELECT DISTINCT brand_name,series_name,factory_name FROM media_vehicle_items WHERE org_id=? AND media_id=? AND brand_name=? COLLATE NOCASE',(a['org_id'],d['media_id'],v['brand_name']))
-    factories[key]={norm(r['factory_name']) for r in library if norm(r['brand_name'])==norm(v['brand_name']) and model_name(r['series_name'],r['brand_name'])==model_name(v['series_name'],v['brand_name'])}
-   brand_ok=norm(d['match_brand']) in factories[key]
-  if not brand_ok:return 'MODEL_MISMATCH'
-  models=json.loads(d['match_models']);lead_wide=norm(v['series_name'])=='全系'
-  if not d['all_models'] and not lead_wide and not any(model_name(m,d['match_brand'])==model_name(v['series_name'],v['brand_name']) for m in models):return 'MODEL_MISMATCH'
-  if not d['all_regions'] and city_name(l['city_code']) not in {city_name(v) for v in json.loads(d['match_regions'])}:return 'CITY_MISMATCH'
-  return None
+  from vehicle_matching import demand_model_matches
+  return None if demand_model_matches(c,a['org_id'],l,d,context) else 'MODEL_MISMATCH'
  def _reconcile_source(self,c,a,source_id):
   """按本组织来源更新执行需求及版本；结束标记停发并取消尚未发送的交付。"""
   from domain import now,uid,later,SH
