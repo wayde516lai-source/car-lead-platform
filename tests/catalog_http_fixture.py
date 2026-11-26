@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / 'tests'))
 import server
 from domain import Platform
+from demand_sync import DemandSync
 from media_catalogs import MediaCatalogs, DEFAULT_ENDPOINTS
 from media_vehicles import MediaVehicles
 from test_media_catalogs import car, page, A
@@ -20,6 +21,11 @@ def fetcher(endpoint, token, kind, number):
                    power='150', gearbox='测试变速箱', saleStatus=0, memberBrandName='测试会员品牌')
     return page([vehicle]) if kind == 'vehicles' else page([
         {'id': 99, 'cityCode': 2501, 'cityName': '上海', 'parentName': '上海市'}])
+
+
+def blocked_demand_fetch(url):
+    """本地预览只读取已有需求，拒绝读取真实外部来源。"""
+    raise RuntimeError('LOCAL_PREVIEW_EXTERNAL_NETWORK_BLOCKED')
 
 
 class FakeCatalogs(MediaCatalogs):
@@ -34,6 +40,7 @@ with tempfile.TemporaryDirectory(prefix='catalog-ui-only-') as directory:
     for kind in ('cities', 'vehicles'):
         library.configure(A, 'MEDIA_A', kind, {'endpoint': DEFAULT_ENDPOINTS[kind], 'enabled': True, 'version': 0})
         library._sync(*library._claim(A, 'MEDIA_A', kind, 'manual'))
+    server.DEMAND_SYNC = DemandSync(platform, blocked_demand_fetch)
     server.P = platform
     server.VEHICLES = MediaVehicles(platform)
     server.MediaCatalogs = FakeCatalogs

@@ -22,7 +22,7 @@ class DemandSummaryTests(unittest.TestCase):
  def test_time_bounds_and_empty_progress(self):
   with self.p.tx() as c:
    c.execute('UPDATE demands SET end_at=? WHERE id=?',(later(hours=-1),self.ids[0]));c.execute('UPDATE demands SET start_at=? WHERE id=?',(later(days=1),self.ids[1]))
-  g=self.group();self.assertEqual(g['active_count'],0);self.assertEqual(g['target_total'],0);self.assertEqual(g['status'],'MIXED');self.assertEqual(g['urgency_stars'],0)
+  g=self.group();self.assertEqual(g['active_count'],0);self.assertEqual(g['target_total'],0);self.assertEqual(g['status'],'WAITING');self.assertEqual(g['urgency_stars'],0)
  def test_filters_pagination_and_tenant(self):
   g=self.group();self.assertTrue(self.p.demand_summary(A,q=g['buyer_name'],status='ACTIVE',media='MEDIA_A')['total']>=1)
   r=self.p.demand_summary(A,page=2);self.assertEqual(r['items'],[]);self.assertGreater(r['total'],0)

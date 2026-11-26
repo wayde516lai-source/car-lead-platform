@@ -12,17 +12,22 @@ class ProjectFilterTests(unittest.TestCase):
  def tearDown(self):self.temp.cleanup()
  def query(self,**f):return self.sync.all_projects(A,filters=f)
  def test_default_all_partners(self):
-  r=self.query();self.assertEqual(r['total'],3);self.assertEqual({v['partner_id'] for v in r['items']},{'MEDIA_A','MEDIA_B'})
+  r=self.query();self.assertEqual(r['total'],2);self.assertEqual({v['partner_id'] for v in r['items']},{'MEDIA_A','MEDIA_B'})
  def test_partner_filter_and_empty_partner(self):
-  self.assertEqual(self.query(partner_id='MEDIA_A')['total'],2);self.assertEqual(self.query(partner_id='MEDIA_B')['total'],1);self.assertEqual(self.query(partner_id='MEDIA_C')['total'],0)
+  self.assertEqual(self.query(partner_id='MEDIA_A')['total'],1);self.assertEqual(self.query(partner_id='MEDIA_B')['total'],1);self.assertEqual(self.query(partner_id='MEDIA_C')['total'],0)
  def test_combined_brand_model_city_and_status(self):
   r=self.query(partner_id='MEDIA_A',brand='宝马',model='宝马 X5',city='北京',match_status='ACTIVE');self.assertEqual(r['total'],1);self.assertEqual(r['items'][0]['source_key'],'A1')
  def test_all_regions_and_national_scope(self):
-  self.assertEqual(self.query(city='北京市')['total'],2);self.assertEqual(self.query(city='全国')['total'],1);self.assertEqual(self.query(city='广州市',match_status='ACTIVE')['total'],1)
+  self.assertEqual(self.query(city='北京市')['total'],1);self.assertEqual(self.query(city='全国')['total'],0);self.assertEqual(self.query(city='广州市',match_status='ACTIVE')['total'],1)
+  url=next(url for url in self.data if 'ONE' in url)
+  self.data[url]['records'].append(record(key='A3',model='宝马 X5',regions='全国'))
+  source=next(source for source in self.sync.sources(A) if source['partner_id']=='MEDIA_A')
+  self.assertEqual(self.sync.run(A,source['id'])['status'],'SUCCESS')
+  self.assertEqual(self.query(city='北京市')['total'],2);self.assertEqual(self.query(city='全国')['total'],1);self.assertEqual(self.query(city='广州市',match_status='ACTIVE')['total'],2)
  def test_status_filter_and_context_options(self):
-  self.assertEqual(self.query(match_status='CLOSED')['total'],1);r=self.query(partner_id='MEDIA_B');self.assertEqual([o['value'] for o in r['filter_options']['brand']],['宝马']);self.assertEqual([o['value'] for o in r['filter_options']['model']],['宝马 3系'])
+  self.assertEqual(self.query(match_status='CLOSED')['total'],0);r=self.query(partner_id='MEDIA_B');self.assertEqual([o['value'] for o in r['filter_options']['brand']],['宝马']);self.assertEqual([o['value'] for o in r['filter_options']['model']],['宝马 3系'])
  def test_filters_before_paging_and_tenant_isolation(self):
-  r=self.sync.all_projects(A,page=2,page_size=20,filters={'partner_id':'MEDIA_A'});self.assertEqual(r['total'],2);self.assertEqual(r['items'],[])
+  r=self.sync.all_projects(A,page=2,page_size=20,filters={'partner_id':'MEDIA_A'});self.assertEqual(r['total'],1);self.assertEqual(r['items'],[])
   other={'id':'u_other','role':'admin','org_id':'other'};self.assertEqual(self.sync.all_projects(other)['total'],0)
 
  def test_multi_models_split_and_typed_search(self):
@@ -38,7 +43,7 @@ class ProjectFilterTests(unittest.TestCase):
     self.sync.save(A,{'version':source['version'],'quantity_basis':'TOTAL'},source['id'])
    self.assertEqual(self.sync.run(A,source['id'])['status'],'SUCCESS')
   summary=self.query()['summary']
-  self.assertEqual(summary,{'brand_count':2,'city_count':3,'nationwide_demands':1,
+  self.assertEqual(summary,{'brand_count':1,'city_count':3,'nationwide_demands':0,
                            'order_quantities':{'daily':2,'total':7,'invalid_rows':0}})
   second=self.sync.all_projects(A,page=2,page_size=20)
   self.assertEqual(second['items'],[]);self.assertEqual(second['summary'],summary)
@@ -46,7 +51,7 @@ class ProjectFilterTests(unittest.TestCase):
   self.assertEqual(selected['brand_count'],1);self.assertEqual(selected['city_count'],1)
   self.assertEqual(selected['order_quantities'],{'daily':0,'total':7,'invalid_rows':0})
   closed=self.query(match_status='CLOSED')['summary']
-  self.assertEqual(closed['city_count'],0);self.assertEqual(closed['nationwide_demands'],1)
+  self.assertEqual(closed['city_count'],0);self.assertEqual(closed['nationwide_demands'],0)
   self.assertEqual(closed['order_quantities']['daily'],0)
   other=self.sync.all_projects({'id':'u_other','role':'admin','org_id':'other'})['summary']
   self.assertEqual(other,{'brand_count':0,'city_count':0,'nationwide_demands':0,

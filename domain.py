@@ -3,7 +3,7 @@ from contextlib import contextmanager,nullcontext
 from datetime import date, datetime,timedelta,timezone
 from pathlib import Path
 from security import Vault,canonical,digest,password_hash,sign
-from demand_statistics import summarize_order_quantities
+from demand_statistics import summarize_order_quantities, daily_demand_ranking
 from project_availability import demand_project_condition
 import yiche
 import yiche_transport
@@ -1300,6 +1300,16 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
       LEFT JOIN channels ch ON ch.id=l.channel_id AND ch.org_id=l.org_id
       LEFT JOIN partners p ON p.id=ch.source_partner_id AND p.org_id=l.org_id
       WHERE l.org_id=? ORDER BY l.created_at DESC,l.id DESC""",(a['org_id'],))]
+ def _delivery_phone_lead_ids(self,c,a,query):
+  """完整手机号按本组织HMAC精确查询；无手机号字段权限时不返回命中。"""
+  phone=unicodedata.normalize('NFKC',query).replace(' ','').replace('-','')
+  if phone.startswith('+86'):phone=phone[3:]
+  if not re.fullmatch(r'1[3-9][0-9]{9}',phone):return None
+  fields=self._lead_field_override(c,a)
+  if fields is not None and 'phone' not in fields:return set()
+  fingerprint=self.vault.fingerprint(a['org_id'],'+86'+phone)
+  return {row['id'] for row in c.execute('SELECT id FROM leads WHERE org_id=? AND phone_hmac=?',(a['org_id'],fingerprint))}
+
  def list(self,a,table,page_size=20,page=1,q='',status='',channel='',media='',lead_filters=None):
   self.require(a,'read')
   if table=='audit_log':self.require(a,'settings')
@@ -1315,7 +1325,10 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    if status:rows=[r for r in rows if r.get('status',r.get('send_status'))==status]
    if channel:rows=[r for r in rows if r.get('channel_id')==channel]
    if media:rows=[r for r in rows if r.get('media_id')==media]
-   if q:rows=[r for r in rows if q.lower() in canonical({k:v for k,v in r.items() if 'cipher' not in k and 'hmac' not in k and 'snapshot' not in k}).lower()]
+   if q:
+    phone_leads=self._delivery_phone_lead_ids(c,a,q) if table=='deliveries' else None
+    if phone_leads is not None:rows=[row for row in rows if row['lead_id'] in phone_leads]
+    else:rows=[r for r in rows if q.lower() in canonical({k:v for k,v in r.items() if 'cipher' not in k and 'hmac' not in k and 'snapshot' not in k}).lower()]
    total=len(rows);rows=rows[(max(1,page)-1)*page_size:max(1,page)*page_size]
    items=[self._public(c,a,table,r) for r in rows];return {'items':items,'total':total,'page':page,'page_size':page_size,'has_more':page*page_size<total}
   finally:c.close()
@@ -1438,10 +1451,11 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    # Attribute each demand to its purchasing entity, so agency forwarding is
    # counted once rather than again under the destination media.
    from synced_demands import norm
-   demand_rows=c.execute("SELECT d.status,CASE WHEN d.sync_state='ENDED' THEN 0 ELSE COALESCE(d.api_submit_limit,d.target_total) END AS target_total,d.quantity_basis,d.api_vehicles,p.role,COALESCE(NULLIF(trim(d.match_brand),''),cat.brand_name) AS brand FROM demands d JOIN partners p ON p.id=d.buyer_id AND p.org_id=d.org_id LEFT JOIN catalog cat ON cat.series_id=d.series_id WHERE d.org_id=? AND COALESCE(d.sync_state,'')!='REMOVED' AND "+demand_project_condition('d'),(a['org_id'],)).fetchall()
+   demand_rows=c.execute("SELECT d.id,d.demand_no,d.external_demand_no,d.start_at,d.end_at,d.sync_state,d.match_models,d.match_regions,d.city_codes,d.daily_limit,cat.series_name,d.status,CASE WHEN d.sync_state='ENDED' THEN 0 ELSE COALESCE(d.api_submit_limit,d.target_total) END AS target_total,d.quantity_basis,d.api_vehicles,p.role,COALESCE(NULLIF(trim(d.match_brand),''),cat.brand_name) AS brand FROM demands d JOIN partners p ON p.id=d.buyer_id AND p.org_id=d.org_id LEFT JOIN catalog cat ON cat.series_id=d.series_id WHERE d.org_id=? AND COALESCE(d.sync_state,'')!='REMOVED' AND "+demand_project_condition('d'),(a['org_id'],)).fetchall()
    partner_counts={r['role']:r['n'] for r in c.execute("SELECT role,count(*) AS n FROM partners WHERE org_id=? AND role IN ('MEDIA','AGENCY') GROUP BY role",(a['org_id'],))}
    out['overview']={'media_count':partner_counts.get('MEDIA',0),'agency_count':partner_counts.get('AGENCY',0),'media_demands':sum(r['role']=='MEDIA' for r in demand_rows),'agency_demands':sum(r['role']=='AGENCY' for r in demand_rows),'total_demands':len(demand_rows),'brand_count':len({norm(brand) for r in demand_rows for brand in ([x['brand'] for x in json.loads(r['api_vehicles'])] if r['api_vehicles']!='[]' else [r['brand']]) if brand and norm(brand)}),'active_demands':sum(r['status']=='ACTIVE' for r in demand_rows)}
    out['overview']['order_quantities']=summarize_order_quantities((r['quantity_basis'],r['target_total']) for r in demand_rows if r['target_total']>0)
+   out['overview']['daily_top_demands']=daily_demand_ranking(demand_rows,out['as_of'])
    if 'finance' in PERMS[a['role']]:out['income_fen']=sum(d['price_fen'] for d in sent if d['settlement_status'] in ['ELIGIBLE','CONFIRMED']);out['cost_fen']=sum(l['cost_fen'] or 0 for l in ls if l['id'] in {d['lead_id'] for d in sent});out['unknown_cost_leads']=sum(l['cost_fen'] is None for l in ls)
    return out
   finally:c.close()

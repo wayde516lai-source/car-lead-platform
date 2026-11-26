@@ -161,9 +161,11 @@ class DistributionMixin:
   try:
    partners={r['id']:r['name'] for r in c.execute('SELECT id,name FROM partners WHERE org_id=?',(a['org_id'],))}
    daily={r['demand_id']:(r['reserved'],r['valid']) for r in c.execute("SELECT demand_id,sum(quota_state='RESERVED') reserved,sum(quota_state='VALID') valid FROM deliveries WHERE org_id=? AND day=? GROUP BY demand_id",(a['org_id'],day()))}
-   groups={};at=now()
+   from demand_statistics import demand_has_ended
+   groups={};ended_groups=set();at=now()
    for row in c.execute("SELECT d.* FROM demands d WHERE d.org_id=? AND COALESCE(d.sync_state,'')!='REMOVED' AND "+demand_project_condition('d')+" ORDER BY buyer_id,media_id,sale_project,id",(a['org_id'],)):
     d=dict(row);key=(d['buyer_id'],d['media_id'],d['sale_project'])
+    if demand_has_ended(d,at):ended_groups.add(key);continue
     if key not in groups:groups[key]={'buyer_id':key[0],'media_id':key[1],'project':key[2],'buyer_name':partners.get(key[0],key[0]),'media_name':partners.get(key[1],key[1]),'active_count':0,'total_count':0,'valid_count':0,'reserved_count':0,'available_count':0,'target_total':0,'status_counts':{},'basis':{}}
     g=groups[key];g['total_count']+=1
     effective=d['status']
@@ -184,6 +186,7 @@ class DistributionMixin:
     b['active_count']+=1
    for r in c.execute("SELECT r.buyer_id,r.media_id,p.project FROM routes r JOIN partner_projects p ON p.org_id=r.org_id AND p.partner_id=r.buyer_id JOIN partners owner ON owner.id=r.buyer_id AND owner.org_id=r.org_id WHERE r.org_id=? AND owner.enabled=1 AND p.enabled=1 ORDER BY r.buyer_id,r.media_id,p.project",(a['org_id'],)):
     key=(r['buyer_id'],r['media_id'],r['project'])
+    if key in ended_groups and key not in groups:continue
     if key not in groups:groups[key]={'buyer_id':key[0],'media_id':key[1],'project':key[2],'buyer_name':partners.get(key[0],key[0]),'media_name':partners.get(key[1],key[1]),'active_count':0,'total_count':0,'valid_count':0,'reserved_count':0,'available_count':0,'target_total':0,'status_counts':{},'basis':{}}
    rows=[]
    for g in groups.values():

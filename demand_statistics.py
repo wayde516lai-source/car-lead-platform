@@ -1,5 +1,7 @@
 """需求下单量统计口径：每日目标与项目周期总目标分开汇总。"""
+import json
 import re
+from datetime import datetime
 
 
 def summarize_order_quantities(orders) -> dict:
@@ -16,3 +18,46 @@ def summarize_order_quantities(orders) -> dict:
             continue
         result['daily' if basis == 'DAILY' else 'total'] += int(text)
     return result
+
+
+def demand_has_ended(demand, at):
+    """识别当前展示中的结束需求，不改写需求或历史交付状态。"""
+    try:
+        time_ended = bool(demand.get('end_at') and datetime.fromisoformat(demand['end_at']) <= datetime.fromisoformat(at))
+    except (ValueError, TypeError):
+        time_ended = False
+    return (demand.get('status') in ('CLOSED', 'COMPLETED')
+            or demand.get('sync_state') in ('ENDED', 'REMOVED')
+            or time_ended)
+
+
+def execution_days(start_at, at):
+    """按已过去的完整24小时计算执行天数；未开始为0，缺失/非法开始时间为空。"""
+    if not start_at:
+        return None
+    try:
+        elapsed = datetime.fromisoformat(at) - datetime.fromisoformat(start_at)
+    except (ValueError, TypeError):
+        return None
+    return max(0, elapsed.days)
+
+
+def daily_demand_ranking(demands, at):
+    """每日下单目标前十；保留一项需求的多车型/多城市，不重复放大量级。"""
+    from synced_demands import city_name
+    result = []
+    for demand in demands:
+        row = dict(demand)
+        if row['status'] not in ('ACTIVE', 'PAUSED'):
+            continue
+        quantity = row['target_total'] if row['quantity_basis'] == 'DAILY' else row['daily_limit']
+        if demand_has_ended(row, at) or quantity <= 0:
+            continue
+        vehicles = json.loads(row['api_vehicles'])
+        brands = list(dict.fromkeys(item['brand'] for item in vehicles)) if vehicles else [row['brand'] or '未填写品牌']
+        models = list(dict.fromkeys(item['model'] for item in vehicles)) if vehicles else json.loads(row['match_models'] or '[]') or [row['series_name'] or '未填写车型']
+        cities = json.loads(row['match_regions'] or '[]') or json.loads(row['city_codes'])
+        result.append({'id': row['id'], 'demand_no': row['external_demand_no'] or row['demand_no'],
+                       'brand': ' / '.join(brands), 'model': ' / '.join(models),
+                       'city': ' / '.join(city_name(value) for value in cities) or '未填写城市', 'daily_quantity': quantity})
+    return sorted(result, key=lambda row: (-row['daily_quantity'], row['id']))[:10]
