@@ -85,3 +85,32 @@ class DemandOverlapTests(unittest.TestCase):
         self.assertEqual(row['city'], '上海')
         self.assertEqual((row['daily_quantity'], row['media_count']), (100, 1))
         self.assertTrue(any(detail['shared_scope'] for detail in row['details']))
+
+    def test_more_than_twenty_thousand_groups_are_sorted_and_paginated_without_cutoff(self):
+        from test_synced_demands import SyncedDemandTests, record
+        fixture = SyncedDemandTests()
+        fixture.setUp()
+        self.addCleanup(fixture.tearDown)
+        with fixture.p.tx() as conn:
+            conn.execute("UPDATE demands SET status='CLOSED' WHERE external_project_id IS NULL")
+            conn.executemany('INSERT INTO catalog VALUES(?,?,?,?)',
+                [(f'large-model-{i}', 'large-brand', '范围测试品牌', f'范围车型{i:03}') for i in range(160)])
+        cities = ','.join(f'范围城市{i:03}' for i in range(160))
+        fixture.data['records'] = [record(key='large-one', brand='范围测试品牌', model='全系', regions=cities, qty='100'),
+                                   record(key='large-two', brand='范围测试品牌', model='全系', regions=cities, qty='80')]
+        fixture.run_sync()
+        with fixture.p.connect() as conn:
+            before = conn.execute('SELECT count(*) FROM demands').fetchone()[0]
+        first = analyze(fixture.p, A, page_size=20)
+        second = analyze(fixture.p, A, page=2, page_size=20)
+        self.assertEqual(first['total'], 25600)
+        self.assertTrue(first['has_more'])
+        self.assertEqual(len(first['items']), 20)
+        self.assertFalse({(row['model'], row['city']) for row in first['items']} &
+                         {(row['model'], row['city']) for row in second['items']})
+        self.assertTrue(all(row['daily_quantity'] == 100 and row['demand_count'] == 2 for row in first['items']))
+        filtered = analyze(fixture.p, A, query='范围车型159')
+        self.assertEqual(filtered['total'], 160)
+        self.assertEqual(filtered['items'][0]['model'], '范围车型159')
+        with fixture.p.connect() as conn:
+            self.assertEqual(conn.execute('SELECT count(*) FROM demands').fetchone()[0], before)
