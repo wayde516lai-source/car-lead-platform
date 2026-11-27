@@ -23,8 +23,10 @@ vm.runInContext(source.slice(source.indexOf('async function demandSyncPanel('), 
   assert(tableResult.rows[0].includes('6 天'));
   const chart = context.dailyDemandRanking([{daily_quantity: 12, brand: '<测试品牌>', model: '车型一', city: '上海', demand_no: '001'}]);
   assert(chart.includes('每日下单量前十需求'));
-  for(const text of ['&lt;测试品牌&gt;', '车型一', '上海', '条/日', 'width:100%'])assert(chart.includes(text));
+  for(const text of ['&lt;测试品牌&gt;', '001', '条/日', 'width:100%'])assert(chart.includes(text));
   assert(!chart.includes('<测试品牌>'));
+  assert(!chart.includes('车型一'));
+  assert(!chart.includes('上海'));
   assert(context.dailyDemandRanking([]).includes('暂无可排名'));
   assert(!source.includes('执行中的采购需求'));
   console.log('PASS: 隐藏备注/更新日期、执行天数、每日排行标签/柱形/空状态及转义');

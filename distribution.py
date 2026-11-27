@@ -99,11 +99,20 @@ class DistributionMixin:
    if not any(self._block(c,a,lead,d,project=d['sale_project'] if d['sale_project']!='UNKNOWN' else 'MEMBER',match_context=match_context) is None for d in demands):continue
    yield lead
 
+ def matching_demand_options(self,a):
+  """匹配页一次读取必要需求标识，避免逐页拉取原表内容；预览仍实时重验。"""
+  self.require(a,'read')
+  c=self.connect()
+  try:
+   rows=[dict(row) for row in c.execute("SELECT d.id,d.buyer_id,d.receiver_id,d.media_id,d.sale_project FROM demands d WHERE d.org_id=? AND d.status='ACTIVE' AND COALESCE(d.sync_state,'')!='REMOVED' AND "+demand_project_condition('d')+" ORDER BY d.created_at DESC,d.id DESC",(a['org_id'],))]
+   return {'items':rows}
+  finally:c.close()
+
  def matching_leads(self,a,page_size=20,page=1,filters=None,selected_ids=None,buyer_ids=None):
   from domain import Fault,LEAD_COLUMNS,now
   self.require(a,'dispatch')
   if page_size not in (20,50,100):raise Fault('PAGE_SIZE_INVALID','每页只能选择20、50、100条')
-  filters=filters or {};c=self.connect()
+  filters=filters or {};c=self.read_connect()
   try:
    override=self._lead_field_override(c,a);fields=set(dict(LEAD_COLUMNS) if override is None else override)
    definitions=[('lead_no','编号'),('city','城市'),('brand','品牌'),('model','车型'),('sales_count','已匹配媒体'),('project','项目')]
@@ -157,7 +166,7 @@ class DistributionMixin:
   from domain import Fault,now,day
   self.require(a,'read')
   if page_size not in (20,50,100):raise Fault('PAGE_SIZE_INVALID','每页只能选择20、50、100条')
-  c=self.connect()
+  c=self.read_connect()
   try:
    partners={r['id']:r['name'] for r in c.execute('SELECT id,name FROM partners WHERE org_id=?',(a['org_id'],))}
    daily={r['demand_id']:(r['reserved'],r['valid']) for r in c.execute("SELECT demand_id,sum(quota_state='RESERVED') reserved,sum(quota_state='VALID') valid FROM deliveries WHERE org_id=? AND day=? GROUP BY demand_id",(a['org_id'],day()))}
@@ -277,7 +286,7 @@ class DistributionMixin:
   return {'bound':len(pairs)}
 
  def auto_status(self,a):
-  self.require(a,'dispatch');c=self.connect()
+  self.require(a,'dispatch');c=self.read_connect()
   try:
    setting=dict(c.execute('SELECT * FROM settings WHERE org_id=?',(a['org_id'],)).fetchone())
    items=[]

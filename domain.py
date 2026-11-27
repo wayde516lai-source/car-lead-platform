@@ -71,6 +71,10 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   try:c.executescript((Path(__file__).parent/'migrations/001_initial.sql').read_text())
   finally:c.close()
   self._migrate()
+ def read_connect(self):
+  """为单次只读页面请求创建查询复用器；交易及worker继续使用原连接。"""
+  from read_queries import ReadQueries
+  return ReadQueries(self.connect())
  def _migrate(self):
   with self.tx() as c:
    migrations = ((2, '002_yiche.sql'), (3, '003_media_vehicles.sql'),
@@ -138,7 +142,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    # Increase target so the example demand still has five available positions.
    self.edit_demand(admin,d['id'],{'target_total':6,'daily_limit':6,'version':3})
  def catalogs(self,a):
-  c=self.connect()
+  c=self.read_connect()
   try:
    out={t:[dict(x) for x in c.execute('SELECT * FROM '+t+" WHERE org_id=?"+(" AND id NOT LIKE 'INTAKE:%'" if t=='channels' else ''),(a['org_id'],))] for t in ['partners','channels','routes']}
    from route_sending import status as route_send_status
@@ -649,9 +653,20 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   return lead
  def _basic_match_block(self,c,a,l,d,project=None,match_context=None):
   """基础业务条件：有效线索、需求时间、车型名称、城市及项目，不检查执行开关。"""
-  l=self._effective_lead(l)
+  if match_context is None:
+   l=self._effective_lead(l)
+   too_old=l['status']=='READY' and parse(l['collected_at'])<parse(now())-timedelta(hours=d['max_age_hours'])
+  else:
+   if 'as_of' not in match_context:match_context['as_of']=now()
+   at=match_context['as_of']
+   effective=match_context.setdefault('effective_leads',{})
+   if l['id'] not in effective:effective[l['id']]=self._effective_lead(l,at)
+   l=effective[l['id']]
+   ages=match_context.setdefault('lead_ages',{});age_key=(l['id'],d['max_age_hours'])
+   if age_key not in ages:ages[age_key]=l['status']=='READY' and parse(l['collected_at'])<parse(at)-timedelta(hours=d['max_age_hours'])
+   too_old=ages[age_key]
   if l['status']!='READY':return 'LEAD_'+('INVALID' if l['status']=='QUARANTINED' else l['status'])
-  if parse(l['collected_at'])<parse(now())-timedelta(hours=d['max_age_hours']):return 'DEMAND_LEAD_TOO_OLD'
+  if too_old:return 'DEMAND_LEAD_TOO_OLD'
   if d.get('sync_state')=='REMOVED' or d['status']!='ACTIVE' or d['start_at']>now() or d['end_at']<=now():return 'DEMAND_INACTIVE'
   if d.get('external_project_id'):
    reason=self._synced_vehicle_region_block(c,a,l,d,match_context)
@@ -660,8 +675,8 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   else:
    from vehicle_matching import demand_model_matches
    if not demand_model_matches(c,a['org_id'],l,d,match_context):return 'MODEL_MISMATCH'
-   from synced_demands import city_name
-   if city_name(l['city_code']) not in {city_name(value) for value in json.loads(d['city_codes'])}:return 'CITY_MISMATCH'
+   from synced_demands import city_in_regions
+   if not city_in_regions(l['city_code'],d['city_codes'],match_context):return 'CITY_MISMATCH'
   return None
  def _block(self,c,a,l,d,skip_delivery=None,project=None,match_context=None):
   reason=self._basic_match_block(c,a,l,d,project,match_context)
@@ -1315,7 +1330,7 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
   if table=='audit_log':self.require(a,'settings')
   if page_size not in [20,50,100]:raise Fault('PAGE_SIZE_INVALID','每页只能选择20、50、100条')
   if table not in ['leads','demands','deliveries','audit_log','callback_events','imports','privacy_requests','exports']:raise Fault('NOT_FOUND','页面不存在',404)
-  c=self.connect()
+  c=self.read_connect()
   try:
    if table=='leads':
     rows=self._lead_rows(c,a)
@@ -1435,8 +1450,8 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
 
    return out
   finally:c.close()
- def reports(self,a):
-  self.require(a,'read');c=self.connect()
+ def reports(self,a,include_matching=True):
+  self.require(a,'read');c=self.read_connect()
   try:
    ds=[dict(x) for x in c.execute('SELECT d.*,l.channel_id FROM deliveries d JOIN leads l ON l.id=d.lead_id WHERE d.org_id=?',(a['org_id'],))];ls=[dict(x) for x in c.execute('SELECT * FROM leads WHERE org_id=?',(a['org_id'],))];sent=[d for d in ds if d['first_sent_at']]
    def metrics(xs):
@@ -1444,10 +1459,11 @@ class Platform(DistributionMixin,SyncedDemandsMixin,ZhemanhuiMixin):
    groups=[]
    for ch,med in sorted({(d['channel_id'],d['media_id']) for d in sent}):groups.append({'channel_id':ch,'media_id':med,**metrics([d for d in sent if d['channel_id']==ch and d['media_id']==med])})
    out={'leads':len(ls),'ready':sum(self._effective_lead(l)['status']=='READY' for l in ls),'ingestions':c.execute('SELECT count(*) FROM ingestions WHERE org_id=?',(a['org_id'],)).fetchone()[0],'deliveries':len(ds),'unique_sent_leads':len({d['lead_id'] for d in sent}),'metrics':metrics(sent),'groups':groups,'multisale':round(len(sent)/max(1,len({d['lead_id'] for d in sent})),2),'as_of':now()}
-   out['matchable']=sum(1 for _ in self._matchable_lead_rows(c,a))
+   out['quarantined']=sum(self._effective_lead(lead)['status']=='QUARANTINED' for lead in ls)
+   if include_matching:out['matchable']=sum(1 for _ in self._matchable_lead_rows(c,a))
    # matchable旧字段保留完整可分发含义，新增两项供总览明确展示。
-   out['dispatchable']=out['matchable']
-   out['business_matchable']=sum(1 for _ in self._business_match_lead_rows(c,a))
+   if include_matching:out['dispatchable']=out['matchable']
+   if include_matching:out['business_matchable']=sum(1 for _ in self._business_match_lead_rows(c,a))
    # Attribute each demand to its purchasing entity, so agency forwarding is
    # counted once rather than again under the destination media.
    from synced_demands import norm

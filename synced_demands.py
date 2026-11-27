@@ -11,6 +11,15 @@ def model_name(value,brand):
  brand=''.join(ch for ch in unicodedata.normalize('NFKC',str(brand)).casefold() if ch.isalnum())
  return value[len(brand):] if brand and value.startswith(brand) else value
 
+def city_in_regions(city, encoded_regions, context=None):
+ """同次匹配只解析一次地区列表，不跨请求保留地区或客户数据。"""
+ if context is None:return city_name(city) in {city_name(value) for value in json.loads(encoded_regions)}
+ regions=context.setdefault('normalized_regions',{})
+ if encoded_regions not in regions:regions[encoded_regions]={city_name(value) for value in json.loads(encoded_regions)}
+ names=context.setdefault('normalized_cities',{})
+ if city not in names:names[city]=city_name(city)
+ return names[city] in regions[encoded_regions]
+
 def source_execution_ended(values: dict) -> bool:
     """识别原表明确结束标记，优先于待定结束时间和原下单量。"""
     return str(values.get('需求执行状态（渠道维护）', '')).strip() in (
@@ -60,7 +69,7 @@ class SyncedDemandsMixin:
   return d
  def _synced_vehicle_region_block(self,c,a,l,d,context=None):
   """同步需求按共享车型名称匹配，实际分发仍限制需求指定地区。"""
-  if not d['all_regions'] and city_name(l['city_code']) not in {city_name(v) for v in json.loads(d['match_regions'])}:return 'CITY_MISMATCH'
+  if not d['all_regions'] and not city_in_regions(l['city_code'],d['match_regions'],context):return 'CITY_MISMATCH'
   from vehicle_matching import demand_model_matches
   return None if demand_model_matches(c,a['org_id'],l,d,context) else 'MODEL_MISMATCH'
  def _reconcile_source(self,c,a,source_id):

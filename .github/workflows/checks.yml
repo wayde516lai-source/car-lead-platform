@@ -66,5 +66,7 @@ jobs:
           node tests/test_media_catalogs_ui.cjs
           node tests/test_delivery_status_ui.cjs
           node tests/test_demand_pool_overview_ui.cjs
+          node tests/test_demand_overlap_ui.cjs
+          node tests/test_page_loading_ui.cjs
       - name: Check patch formatting
         run: git diff --check HEAD^ HEAD
