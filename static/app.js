@@ -26,7 +26,7 @@ function demandExcelFeedback(container, message, isError = false) {
   if (isError) feedback.focus({preventScroll: true});
 }
 let pageRequestsController=null;
-async function api(path,method='GET',body,headers={}){const r=await fetch('/api/v1/'+path,{method,...(method==='GET'&&pageRequestsController?{signal:pageRequestsController.signal}:{}),headers:{'Content-Type':'application/json','X-CSRF-Token':state.user?.csrf||'',...headers},body:body===undefined?undefined:JSON.stringify(body)});const j=await r.json();if(!r.ok){const e=new Error(j.message+'（'+j.code+'）');e.status=r.status;throw e}return j.data}
+async function api(path,method='GET',body,headers={}){const r=await fetch('/api/v1/'+path,{method,...(method==='GET'&&pageRequestsController?{signal:pageRequestsController.signal}:{}),headers:{'Content-Type':'application/json','X-CSRF-Token':state.user?.csrf||'',...headers},body:body===undefined?undefined:JSON.stringify(body)});const j=await r.json();if(!r.ok){const e=new Error(j.message+'（'+j.code+'）');e.status=r.status;e.code=j.code;throw e}return j.data}
 // 空状态放在横向滚动容器外，避免在超宽表格中居中后被窄窗口裁掉。
 function table(headers,rows,empty='暂无记录'){
  const body=rows.map(row=>`<tr>${row.map(cell=>`<td>${cell}</td>`).join('')}</tr>`).join('');
@@ -235,8 +235,13 @@ async function demands(){
 let overlapProject='',overlapSort='quantity',overlapOnly=true;
 async function demandOverlap(){
  const params=new URLSearchParams({q:state.q,page:state.page,page_size:state.size,project:overlapProject,sort:overlapSort,overlap_only:overlapOnly?'1':'0'});
- const data=await api('demands/overlap?'+params);
  const controls=`<select id="overlap-project" aria-label="项目">${opt('','全部项目',overlapProject)}${opt('MEMBER','会员',overlapProject)}${opt('KA','KA',overlapProject)}</select><select id="overlap-sort" aria-label="排序">${opt('quantity','每日量优先',overlapSort)}${opt('coverage','媒体覆盖优先',overlapSort)}</select><label><input id="overlap-only" type="checkbox" ${overlapOnly?'checked':''}>仅看重合需求</label>`;
+ const container=typeof $==='function'?$('#main'):null;
+ if(container&&state.view==='demandOverlap')container.innerHTML=heading('DEMAND OVERLAP / 获客参考','需求重合分析','按车型与城市找获客方向，区分独立线索与交付笔数。')+`<section class="card">${filters([],controls,'搜索品牌、车型或城市')}<div class="loading" role="status">正在分析需求重合，可先调整筛选条件…</div></section>`;
+ let data;
+ try{data=await api('demands/overlap?'+params)}catch(error){
+  return heading('DEMAND OVERLAP / 获客参考','需求重合分析','调整条件后可以重新分析。')+`<section class="card">${filters([],controls,'搜索品牌、车型或城市')}<div class="card-body"><div class="callout error">${esc(error.message)}</div><p>当前分析未完成，请调整车型、城市或项目后重试；结果未被截断。</p><button data-action="refresh">重新分析</button></div></section>`;
+ }
  return heading('DEMAND OVERLAP / 获客参考','需求重合分析','按车型与城市找获客方向，区分独立线索与交付笔数。')+`<div class="callout">每日量、剩余量均按最终媒体去重，同媒体取最大值作保守参考，不推测多份订单可叠加。多车型/城市共享额度不可跨行相加。全国按当前需求明确的城市展开；未能展开的范围单独标记。独立线索参考量按今日剩余量估算，是理论下界，授权、KA限制、历史售卖和共享配额未完成分配前，建议补充量显示“待核算”。</div><section class="card">${filters([],controls,'搜索品牌、车型或城市')}${table(['品牌 / 车型','城市','媒体覆盖 / 需求数','每日量 / 共同覆盖','今日剩余交付参考','独立线索参考下界','当前可分发库存','建议补充 / 最近结束','明细'],data.items.map(row=>[
  `${esc(row.brand)}<span class="sub">${esc(row.model)}</span>`,esc(row.city)+(row.range_pending?'<span class="badge gold">范围待展开</span>':''),`${row.media_count} 家 / ${row.demand_count} 项`,`${row.daily_quantity} 条/日<span class="sub">共同覆盖 ${row.common_quantity} 条/日</span>`,`${row.remaining} 笔`,`${row.unique_reference} 条`,row.inventory==null?(row.range_pending?'待展开':'无权限'):`${row.inventory} 条<span class="sub">逐条候选，未预占</span>`,`待核算<span class="sub">${row.nearest_end?fmt(row.nearest_end):'结束时间待定'}</span>`,
  `<details class="overlap-details"><summary>展开重合明细</summary>${table(['媒体 / 合作主体','项目 / 需求编号','每日量 / 剩余','状态 / 限制','结束时间'],row.details.map(detail=>[`${esc(detail.media)}<span class="sub">${esc(detail.buyer)}</span>`,`${detail.project==='KA'?'KA':'会员'}<span class="sub">${esc(detail.demand_no||'—')}</span>`,`${detail.daily_quantity} 条/日 / ${detail.remaining} 笔`,`${badge(detail.status)}<span class="sub">${detail.block_reasons.map(reason=>esc(reasons[reason]||reason)).join('；')||'无库存时尚未完成逐条校验'}${detail.shared_scope?'<br>'+esc(detail.scope_note):''}</span>`,detail.end_at?fmt(detail.end_at):'待定']))}</details>`

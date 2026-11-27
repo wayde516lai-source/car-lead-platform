@@ -1,4 +1,5 @@
 """只读需求重合分析；共享分发校验，不预占库存，不发送或修改需求。"""
+import heapq
 import json
 import math
 
@@ -17,7 +18,7 @@ def analyze(platform, actor, query='', project='', sort='quantity', page=1, page
     platform.require(actor, 'read')
     if project not in ('', 'MEMBER', 'KA') or sort not in ('quantity', 'coverage') or page_size not in (20, 50, 100):
         raise Fault('OVERLAP_FILTER_INVALID', '请选择合法项目、排序与分页')
-    conn = platform.connect()
+    conn = platform.read_connect()
     try:
         fields = platform._lead_field_override(conn, actor)
         inventory_visible = fields is None or {'brand', 'model', 'city'}.issubset(fields)
@@ -55,16 +56,14 @@ def analyze(platform, actor, query='', project='', sort='quantity', page=1, page
                 if norm(model) not in ('全系', '全车型', '不限'):
                     vehicles.add((brand, model))
             prepared.append((demand, selected_project, pairs, cities, national))
-        groups = {}
+        model_index, model_meta, city_index, detail_index, city_labels = {}, {}, {}, {}, {}
         for demand, selected_project, pairs, cities, national in prepared:
             expanded = set()
-            unresolved = False
             for brand, model in pairs:
                 if norm(model) in ('全系', '全车型', '不限'):
                     choices = {(brand, name) for owner, name in vehicles if norm(owner) == norm(brand)}
                     if not choices:
                         choices = {(brand, '全系（范围待展开）')}
-                        unresolved = True
                     expanded.update(choices)
                 else:
                     expanded.add((brand, model))
@@ -76,45 +75,71 @@ def analyze(platform, actor, query='', project='', sort='quantity', page=1, page
             if demand['api_submit_limit'] is None and demand['quantity_basis'] != 'DAILY':
                 counter = conn.execute('SELECT reserved,sent FROM daily_counter WHERE demand_id=? AND day=?', (demand['id'], day())).fetchone()
                 remaining = max(0, min(daily - (counter['reserved'] + counter['sent'] if counter else 0), demand['target_total'] - demand['reserved_count'] - demand['valid_count']))
-            for brand, model in expanded:
-                for city in cities:
-                    if query.strip().casefold() not in (brand + ' ' + model + ' ' + city).casefold():
-                        continue
-                    key = ('unresolved:' + norm(brand) if model == '全系（范围待展开）' else model_name(model, brand), city_name(city))
-                    group = groups.setdefault(key, {'model_key': key[0], 'brand': set(), 'model': model, 'city': city, 'details': {}, 'range_pending': False})
-                    group['brand'].add(brand)
-                    group['range_pending'] |= unresolved or '范围待展开' in city
-                    group['details'][demand['id']] = {'id': demand['id'], 'demand_no': external_demand_no(demand),
-                        'media_id': demand['media_id'], 'media': names.get(demand['media_id'], ''),
-                        'buyer': names.get(demand['buyer_id'], ''), 'project': selected_project,
-                        'daily_quantity': daily, 'remaining': remaining or 0, 'end_at': None if demand['open_ended'] else demand['end_at'],
-                        'shared_scope': len(expanded) > 1 or len(cities) > 1 or national,
-                        'scope_note': '多车型/城市共享额度，不可跨行相加' if len(expanded) > 1 or len(cities) > 1 or national else '',
-                        'status': demand['status'], 'start_at': demand['start_at'], 'block_reasons': set()}
-                    if len(groups) > 20000:
-                        raise Fault('OVERLAP_SCOPE_TOO_LARGE', '范围过大，请输入车型或城市缩小分析范围')
-        rows = []
-        for group in groups.values():
-            details = list(group['details'].values())
-            if overlap_only and len(details) < 2:
-                continue
-            targets, remaining = {}, {}
-            for detail in details:
-                media = detail['media_id']
-                targets[media] = max(targets.get(media, 0), detail['daily_quantity'])
-                remaining[media] = max(remaining.get(media, 0), detail['remaining'])
-            rows.append({**group, 'brand': ' / '.join(sorted(group['brand'])), 'details': details,
-                'media_count': len(targets), 'demand_count': len(details), 'daily_quantity': sum(targets.values()),
-                'common_quantity': min(targets.values()) if len(targets) > 1 else 0,
-                'remaining': sum(remaining.values()), 'unique_reference': max(remaining.values(), default=0),
-                'inventory': None, 'suggested': None, 'nearest_end': min((x['end_at'] for x in details if x['end_at']), default=None)})
+            detail_index[demand['id']] = {'id': demand['id'], 'demand_no': external_demand_no(demand),
+                'media_id': demand['media_id'], 'media': names.get(demand['media_id'], ''),
+                'buyer': names.get(demand['buyer_id'], ''), 'project': selected_project,
+                'daily_quantity': daily, 'remaining': remaining or 0,
+                'end_at': None if demand['open_ended'] else demand['end_at'],
+                'shared_scope': len(expanded) > 1 or len(cities) > 1 or national,
+                'scope_note': '多车型/城市共享额度，不可跨行相加' if len(expanded) > 1 or len(cities) > 1 or national else '',
+                'status': demand['status'], 'start_at': demand['start_at']}
+            for brand, model in sorted(expanded):
+                key = 'unresolved:' + norm(brand) if model == '全系（范围待展开）' else model_name(model, brand)
+                model_index.setdefault(key, set()).add(demand['id'])
+                meta = model_meta.setdefault(key, {'model': model, 'brands': {}})
+                meta['brands'].setdefault(demand['id'], set()).add(brand)
+            for city in cities:
+                city_index.setdefault(city_name(city), set()).add(demand['id'])
+                city_labels.setdefault(city_name(city), city)
         settings = conn.execute('SELECT max_media_count,dispatch_enabled FROM settings WHERE org_id=?', (actor['org_id'],)).fetchone()
-        for row in rows:
-            row['unique_reference'] = max(row['unique_reference'], math.ceil(row['remaining'] / max(1, settings[0])))
-        rows.sort(key=lambda row: (-(row['media_count'] if sort == 'coverage' else row['daily_quantity']), -row['daily_quantity'], row['model'], row['city']))
-        total = len(rows)
+        signature_cache = {}
+        total = 0
+        query = query.strip().casefold()
         page = max(1, page)
-        items = rows[(page-1)*page_size:page*page_size]
+
+        def candidates():
+            # 按车型/城市的需求集合求交，不为所有组合复制明细。相同交集共用量级计算。
+            nonlocal total
+            for model_key, model_demands in model_index.items():
+                meta = model_meta[model_key]
+                for city, city_demands in city_index.items():
+                    demand_ids = frozenset(model_demands & city_demands)
+                    if not demand_ids or (overlap_only and len(demand_ids) < 2):
+                        continue
+                    brands = ' / '.join(sorted({brand for identity in demand_ids for brand in meta['brands'][identity]}))
+                    if query not in (brands + ' ' + meta['model'] + ' ' + city).casefold():
+                        continue
+                    metrics = signature_cache.get(demand_ids)
+                    if metrics is None:
+                        details = [detail_index[identity] for identity in sorted(demand_ids)]
+                        targets, remaining = {}, {}
+                        for detail in details:
+                            media = detail['media_id']
+                            targets[media] = max(targets.get(media, 0), detail['daily_quantity'])
+                            remaining[media] = max(remaining.get(media, 0), detail['remaining'])
+                        quantity = sum(targets.values())
+                        rest = sum(remaining.values())
+                        reference = max(max(remaining.values(), default=0), math.ceil(rest / max(1, settings[0])))
+                        metrics = {'media_count': len(targets), 'demand_count': len(details),
+                            'daily_quantity': quantity, 'remaining': rest, 'unique_reference': reference,
+                            'common_quantity': min(targets.values()) if len(targets) > 1 else 0,
+                            'nearest_end': min((detail['end_at'] for detail in details if detail['end_at']), default=None)}
+                        if len(signature_cache) < 4096:
+                            signature_cache[demand_ids] = metrics
+                    total += 1
+                    order = (-(metrics['media_count'] if sort == 'coverage' else metrics['daily_quantity']),
+                             -metrics['daily_quantity'], meta['model'], city, model_key)
+                    yield (order, model_key, city, brands, demand_ids, metrics)
+
+        # 保留当前页之前的排序候选，而不是为每个车型×城市生成完整行和明细。
+        selected = heapq.nsmallest(page * page_size, candidates(), key=lambda candidate: candidate[0])
+        items = []
+        for _, model_key, city, brands, demand_ids, metrics in selected[(page-1)*page_size:]:
+            meta = model_meta[model_key]
+            items.append({**metrics, 'model_key': model_key, 'brand': brands, 'model': meta['model'], 'city': city_labels[city],
+                'range_pending': model_key.startswith('unresolved:') or '范围待展开' in city,
+                'inventory': None, 'suggested': None,
+                'details': [{**detail_index[identity], 'block_reasons': set()} for identity in sorted(demand_ids)]})
         demand_by_id = {demand['id']: demand for demand, *_ in prepared}
         leads = platform._lead_rows(conn, actor) if inventory_visible else []
         lead_groups = {}
