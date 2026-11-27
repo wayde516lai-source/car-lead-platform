@@ -5,6 +5,17 @@ from synced_demands import model_name, norm
 
 
 def demand_model_matches(conn, org_id, lead, demand, context=None):
+    """只在当前匹配调用中复用同车型同需求的名称比较，创建时无缓存重验。"""
+    if context is None:
+        return _demand_model_matches(conn, org_id, lead, demand)
+    key = (org_id, lead['series_id'], demand['id'])
+    cache = context.setdefault('model_matches', {})
+    if key not in cache:
+        cache[key] = _demand_model_matches(conn, org_id, lead, demand, context)
+    return cache[key]
+
+
+def _demand_model_matches(conn, org_id, lead, demand, context=None):
     """按车型匹配需求，忽略符号；全系需求仍限定品牌，避免扩展为所有车型。
 
     只比较本组织可见的车型名称，不依赖媒体编码、城市、额度或发送开关。

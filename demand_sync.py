@@ -201,7 +201,7 @@ class DemandSync:
   self.p.require(a,'read');filters=filters or {}
   if filters.get('project') not in (None,'','MEMBER','KA'):raise Fault('SYNC_PROJECT_INVALID','项目筛选仅支持会员或KA')
   if page_size not in (20,50,100):raise Fault('PAGE_SIZE_INVALID','每页只能选择20、50、100条')
-  c=self.p.connect()
+  c=self.p.read_connect()
   try:
    sources={r['id']:dict(r) for r in c.execute('SELECT s.* FROM demand_sync_sources s WHERE s.org_id=? AND s.replaced_by IS NULL AND s.deleted_at IS NULL AND '+SOURCE_PROJECT_AVAILABLE_SQL+' ORDER BY s.created_at,s.id',(a['org_id'],))}
    headers=list(dict.fromkeys(h for source in sources.values() for h in json.loads(source['headers'])))
@@ -245,7 +245,12 @@ class DemandSync:
     labels={'ACTIVE':'执行中','CLOSED':'已结束','PAUSED':'已暂停','COMPLETED':'已完成','UNCONFIGURED':'待配置'}
     choices[key]=[{'value':v,'label':labels.get(v,v) if key=='match_status' else v} for v in sorted(values) if v]
     if key=='model':
-     for option in choices[key]:option['brands']=sorted({brand for row in candidates if option['value'] in row['models'] for brand in ([v['brand'] for v in row['api_vehicles'] if v['model']==option['value']] if row['api_vehicles'] else [row['values'].get('品牌','')])})
+     model_brands={}
+     for row in candidates:
+      for model in row['models']:
+       brands=[v['brand'] for v in row['api_vehicles'] if v['model']==model] if row['api_vehicles'] else [row['values'].get('品牌','')]
+       model_brands.setdefault(model,set()).update(brands)
+     for option in choices[key]:option['brands']=sorted(model_brands.get(option['value'],set()))
    choices['project']=[{'value':'MEMBER','label':'会员'},{'value':'KA','label':'KA'}]
    filtered=[row for row in rows if matches(row)];total=len(filtered);counts={}
    for row in filtered:counts[row['match_status']]=counts.get(row['match_status'],0)+1

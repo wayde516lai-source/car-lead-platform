@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import gzip
 import argparse,base64,csv,hashlib,hmac,io,json,mimetypes,os,secrets,sqlite3,sys,threading,time,traceback
 import re
 from decimal import Decimal
@@ -18,6 +19,21 @@ from bootstrap import prepare_startup
 from partner_edit import update_partner
 import yiche_transport
 import zhemanhui
+def accepts_gzip(value):
+    """尊重客户端显式拒绝压缩的q=0设置，只协商gzip。"""
+    for entry in value.lower().split(','):
+        parts = [part.strip() for part in entry.split(';')]
+        if parts[0] != 'gzip':
+            continue
+        try:
+            quality = next((float(part[2:]) for part in parts[1:] if part.startswith('q=')), 1)
+        except ValueError:
+            continue
+        if 0 < quality <= 1:
+            return True
+    return False
+
+
 ROOT=Path(__file__).resolve().parent
 P=None
 VEHICLES=None
@@ -31,7 +47,14 @@ class Handler(BaseHTTPRequestHandler):
   if args:print(time.strftime('%H:%M:%S'),self.command,urlparse(self.path).path,str(args[1] if len(args)>1 else ''))
  def send(self,status,data,ctype='application/json; charset=utf-8',extra=None):
   b=canonical(data).encode() if isinstance(data,(dict,list)) else (data.encode() if isinstance(data,str) else data)
-  self.send_response(status);self.send_header('Content-Type',ctype);self.send_header('Content-Length',str(len(b)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.send_header('X-Frame-Options','DENY');self.send_header('Referrer-Policy','same-origin');self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+  compressed=False
+  if len(b)>2048 and ctype.startswith('application/json') and accepts_gzip(self.headers.get('Accept-Encoding','')):
+   encoded=gzip.compress(b,compresslevel=1)
+   if len(encoded)<len(b):b=encoded;compressed=True
+  self.send_response(status)
+  if compressed:self.send_header('Content-Encoding','gzip')
+  if ctype.startswith('application/json'):self.send_header('Vary','Accept-Encoding')
+  self.send_header('Content-Type',ctype);self.send_header('Content-Length',str(len(b)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.send_header('X-Frame-Options','DENY');self.send_header('Referrer-Policy','same-origin');self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
   for k,v in (extra or {}).items():self.send_header(k,v)
   self.end_headers();self.wfile.write(b)
  def ok(self,data,status=200):self.send(status,{'code':'OK','message':'成功','data':data,'request_id':self.req})
@@ -137,12 +160,16 @@ class Handler(BaseHTTPRequestHandler):
      VEHICLES.configure(a,parts[3],data.get('cid'),data.get('key',''),enabled)
      return self.ok({'saved':True})
    if path=='/api/v1/lead-entry-options' and method=='GET':return self.ok(P.lead_entry_options(a))
+   if path=='/api/v1/demands/overlap' and method=='GET':
+    from demand_overlap import analyze
+    return self.ok(analyze(P,a,qs.get('q',''),qs.get('project',''),qs.get('sort','quantity'),int(qs.get('page',1)),int(qs.get('page_size',20)),qs.get('overlap_only','1')!='0'))
+   if path=='/api/v1/matches/demands' and method=='GET':return self.ok(P.matching_demand_options(a))
    if path=='/api/v1/demands/summary' and method=='GET':return self.ok(P.demand_summary(a,int(qs.get('page_size',20)),int(qs.get('page',1)),qs.get('q',''),qs.get('status',''),qs.get('media','')))
    if path=='/api/v1/partner-projects' and method=='POST':return self.ok(P.project_add(a,data.get('partner_id'),data.get('project')),201)
    if path=='/api/v1/partner-projects/status' and method=='PATCH':return self.ok(P.project_status_update(a,data.get('partner_id'),data.get('project'),data))
    if path=='/api/v1/partner-projects/mode' and method=='PATCH':return self.ok(P.project_mode_update(a,data.get('partner_id'),data.get('project'),data))
    if path=='/api/v1/catalogs':return self.ok(P.catalogs(a))
-   if path=='/api/v1/reports/funnel':return self.ok(P.reports(a))
+   if path=='/api/v1/reports/funnel':return self.ok(P.reports(a,include_matching=qs.get('section')!='delivery'))
    if path=='/api/v1/integrity':return self.ok(P.integrity(a))
    if path=='/api/v1/maintenance' and method=='POST':return self.ok(P.maintenance(a))
    if path=='/api/v1/backup' and method=='POST':return self.ok(P.backup(a))
@@ -352,6 +379,7 @@ class Handler(BaseHTTPRequestHandler):
     try:return self.ok([dict(x) for x in c.execute('SELECT n.*,p.type,p.lead_id FROM privacy_notices n JOIN privacy_requests p ON p.id=n.request_id WHERE p.org_id=?',(a['org_id'],))])
     finally:c.close()
    raise Fault('NOT_FOUND','接口不存在',404)
+  except (BrokenPipeError,ConnectionResetError):return
   except Fault as e:self.send(e.status,{'code':e.code,'message':e.message,'data':None,'request_id':self.req})
   except (ValueError,KeyError,TypeError) as e:self.send(422,{'code':'VALIDATION_ERROR','message':'请检查必填字段及字段格式','data':None,'request_id':self.req})
   except sqlite3.Error:
